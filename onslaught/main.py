@@ -1,6 +1,9 @@
+import os
 import sys
 import argparse
 import logging
+import tempfile
+import subprocess
 
 
 DESCRIPTION = """\
@@ -11,6 +14,10 @@ Run the target python project through a battery of tests.
 def main(args = sys.argv[1:]):
     opts = parse_args(args)
     logging.debug('Parsed opts: %r', opts)
+
+    onslaught = Onslaught(opts.TARGET)
+    onslaught.prepare_virtualenv()
+
     raise NotImplementedError(repr(main))
 
 
@@ -36,15 +43,66 @@ def parse_args(args):
     parser.add_argument(
         'TARGET',
         type=str,
+        nargs='?',
         default='.',
         help='Target python source.')
 
     opts = parser.parse_args(args)
-
-    logging.basicConfig(
-        stream=sys.stdout,
-        format='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
-        datefmt='%Y-%m-%dT%H:%M:%S%z',
-        level=opts.loglevel)
-
+    init_logging(opts.loglevel)
     return opts
+
+
+LogFormatter = logging.Formatter(
+    fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
+    datefmt='%Y-%m-%dT%H:%M:%S%z')
+
+
+def init_logging(level):
+    if level is None:
+        level = logging.INFO
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(LogFormatter)
+    root.addHandler(handler)
+
+
+class Onslaught (object):
+    def __init__(self, target):
+        self._log = logging.getLogger(type(self).__name__)
+
+        self._target = os.path.abspath(target)
+        targetname = os.path.basename(self._target)
+        self._basedir = tempfile.mkdtemp(prefix='onslaught.', suffix='.' + targetname)
+        self._log.info('Onslaught results directory: %r', self._basedir)
+
+        self._logdir = os.path.join(self._basedir, 'logs')
+        os.mkdir(self._logdir)
+
+        logpath = os.path.join(self._logdir, 'main.log')
+        handler = logging.FileHandler(logpath)
+        handler.setFormatter(LogFormatter)
+        logging.getLogger().addHandler(handler)
+
+        self._log.debug('Created debug level log in: %r', logpath)
+
+        self._venv = os.path.join(self._basedir, 'venv')
+
+    def prepare_virtualenv(self):
+        self._log.info('Preparing virtualenv.')
+        self._run('virtualenv', self._venv)
+        self._venv_run('python', os.path.join(self._target, 'setup.py'), 'test')
+
+    def _venv_run(self, logname, cmd, *args):
+        venvpath = os.path.join(self._venv, 'bin', cmd)
+        self._run(logname, venvpath, *args)
+
+    def _run(self, logname, *args):
+        logpath = os.path.join(self._logdir, logname + '.log')
+        self._log.debug('Running: %r; logname %r', args, logname)
+
+        with file(logpath, 'w') as f:
+            subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
