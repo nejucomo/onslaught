@@ -88,21 +88,25 @@ class Onslaught (object):
         logging.getLogger().addHandler(handler)
 
         self._log.debug('Created debug level log in: %r', logpath)
+        self._logstep = 0
 
         self._venv = os.path.join(self._basedir, 'venv')
 
     def prepare_virtualenv(self):
         self._log.info('Preparing virtualenv.')
-        self._run('virtualenv', self._venv)
-        self._venv_run('python', os.path.join(self._target, 'setup.py'), 'test')
+        self._run('virtualenv', 'virtualenv', self._venv)
+        self._venv_run('pip-install', 'pip', 'install', self._target)
 
     def _venv_run(self, logname, cmd, *args):
         venvpath = os.path.join(self._venv, 'bin', cmd)
         self._run(logname, venvpath, *args)
 
     def _run(self, logname, *args):
-        logpath = os.path.join(self._logdir, logname + '.log')
-        self._log.debug('Running: %r; logname %r', args, logname)
+        logfile = 'step-{0}.{1}.log'.format(self._logstep, logname)
+        self._logstep += 1
+
+        logpath = os.path.join(self._logdir, logfile)
+        self._log.debug('Running: %r; logfile %r', args, logfile)
 
         with file(logpath, 'w') as f:
             subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
