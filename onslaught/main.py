@@ -71,6 +71,11 @@ def init_logging(level):
 
 
 class Onslaught (object):
+    _TEST_DEPENDENCIES = [
+        'twisted >= 14.0', # For trial
+        'coverage == 3.7.1',
+        ]
+
     def __init__(self, target):
         self._log = logging.getLogger(type(self).__name__)
 
@@ -95,7 +100,12 @@ class Onslaught (object):
     def prepare_virtualenv(self):
         self._log.info('Preparing virtualenv.')
         self._run('virtualenv', 'virtualenv', self._venv)
-        self._venv_run('pip-install', 'pip', '--verbose', 'install', self._target)
+        pkginfo = [(t.split()[0], t) for t in self._TEST_DEPENDENCIES]
+        pkginfo.append( (os.path.basename(self._target), self._target) )
+
+        for (name, spec) in pkginfo:
+            logname = 'pip-install.{}'.format(name)
+            self._venv_run(logname, 'pip', '--verbose', 'install', spec)
 
     def _venv_run(self, logname, cmd, *args):
         venvpath = os.path.join(self._venv, 'bin', cmd)
