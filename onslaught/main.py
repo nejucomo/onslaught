@@ -95,7 +95,7 @@ class Onslaught (object):
     def prepare_virtualenv(self):
         self._log.info('Preparing virtualenv.')
         self._run('virtualenv', 'virtualenv', self._venv)
-        self._venv_run('pip-install', 'pip', 'install', self._target)
+        self._venv_run('pip-install', 'pip', '--verbose', 'install', self._target)
 
     def _venv_run(self, logname, cmd, *args):
         venvpath = os.path.join(self._venv, 'bin', cmd)
