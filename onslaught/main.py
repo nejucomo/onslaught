@@ -13,10 +13,15 @@ Run the target python project through a battery of tests.
 
 def main(args = sys.argv[1:]):
     opts = parse_args(args)
-    logging.debug('Parsed opts: %r', opts)
+    log = logging.getLogger('main')
+    log.debug('Parsed opts: %r', opts)
 
     onslaught = Onslaught(opts.TARGET)
+
     onslaught.prepare_virtualenv()
+
+    sdist = onslaught.create_sdist()
+    onslaught.install('install-sdist', sdist)
 
     raise NotImplementedError(repr(main))
 
@@ -84,28 +89,51 @@ class Onslaught (object):
         self._basedir = tempfile.mkdtemp(prefix='onslaught.', suffix='.' + targetname)
         self._log.info('Onslaught results directory: %r', self._basedir)
 
-        self._logdir = os.path.join(self._basedir, 'logs')
-        os.mkdir(self._logdir)
+        logpath = self._base_path('logs', 'main.log')
+        self._logdir = os.path.dirname(logpath)
 
-        logpath = os.path.join(self._logdir, 'main.log')
+        os.mkdir(self._logdir)
         handler = logging.FileHandler(logpath)
         handler.setFormatter(LogFormatter)
         logging.getLogger().addHandler(handler)
 
         self._log.debug('Created debug level log in: %r', logpath)
         self._logstep = 0
-
-        self._venv = os.path.join(self._basedir, 'venv')
+        self._venv = self._base_path('venv')
 
     def prepare_virtualenv(self):
         self._log.info('Preparing virtualenv.')
         self._run('virtualenv', 'virtualenv', self._venv)
-        pkginfo = [(t.split()[0], t) for t in self._TEST_DEPENDENCIES]
-        pkginfo.append( (os.path.basename(self._target), self._target) )
 
-        for (name, spec) in pkginfo:
+        for spec in self._TEST_DEPENDENCIES:
+            name = spec.split()[0]
             logname = 'pip-install.{}'.format(name)
-            self._venv_run(logname, 'pip', '--verbose', 'install', spec)
+            self.install(logname, spec)
+
+    def install(self, logname, spec):
+        self._venv_run(logname, 'pip', '--verbose', 'install', spec)
+
+    def create_sdist(self):
+        setup = self._target_path('setup.py')
+        distdir = self._base_path('dist')
+        os.mkdir(distdir)
+        self._venv_run(
+            'setup-sdist',
+            'python',
+             setup,
+            'sdist',
+            '--dist-dir',
+            distdir)
+        [distname] = os.listdir(distdir)
+        sdist = os.path.join(distdir, distname)
+        self._log.info('Testing generated sdist: %r', sdist)
+        return sdist
+
+    def _base_path(self, *parts):
+        return os.path.join(self._basedir, *parts)
+
+    def _target_path(self, *parts):
+        return os.path.join(self._target, *parts)
 
     def _venv_run(self, logname, cmd, *args):
         venvpath = os.path.join(self._venv, 'bin', cmd)
