@@ -1,5 +1,6 @@
 import os
 import sys
+import errno
 import argparse
 import logging
 import tempfile
@@ -84,6 +85,8 @@ class Onslaught (object):
     def __init__(self, target):
         self._log = logging.getLogger(type(self).__name__)
 
+        self._pipcache = self._init_pipcache()
+
         self._target = os.path.abspath(target)
         targetname = os.path.basename(self._target)
         self._basedir = tempfile.mkdtemp(prefix='onslaught.', suffix='.' + targetname)
@@ -111,7 +114,12 @@ class Onslaught (object):
             self.install(logname, spec)
 
     def install(self, logname, spec):
-        self._venv_run(logname, 'pip', '--verbose', 'install', spec)
+        self._venv_run(
+            logname,
+            'pip', '--verbose',
+            'install',
+            '--download-cache', self._pipcache,
+            spec)
 
     def create_sdist(self):
         setup = self._target_path('setup.py')
@@ -134,6 +142,20 @@ class Onslaught (object):
 
     def _target_path(self, *parts):
         return os.path.join(self._target, *parts)
+
+    def _init_pipcache(self):
+        pipcache = os.path.join(os.environ['HOME'], '.onslaught', 'pipcache')
+        try:
+            os.makedirs(pipcache)
+        except os.error as e:
+            if e.errno != errno.EEXIST:
+                raise
+            else:
+                # It already existed, no problem:
+                return pipcache
+        else:
+            self._log.debug('Created %r', pipcache)
+            return pipcache
 
     def _venv_run(self, logname, cmd, *args):
         venvpath = os.path.join(self._venv, 'bin', cmd)
