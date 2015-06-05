@@ -38,11 +38,11 @@ def run_onslaught(target):
     onslaught.install_cached_packages()
     onslaught.install_test_utility_packages()
 
-    onslaught.run_flake8()
+    onslaught.run_phase_flake8()
 
-    sdist = onslaught.create_sdist()
-    onslaught.install_sdist(sdist)
-    onslaught.run_unit_tests_with_coverage(sdist)
+    sdist = onslaught.run_phase_setup_sdist()
+    onslaught.run_phase_install_sdist(sdist)
+    onslaught.run_phase_unittest(sdist)
 
     raise NotImplementedError(repr(run_onslaught))
 
@@ -154,22 +154,15 @@ class Onslaught (object):
             logname = 'pip-install.{}'.format(name)
             self._install(logname, spec)
 
-    def run_flake8(self):
-        self._run_user_test('flake8', 'flake8', self._target)
+    # User test phases:
+    def run_phase_flake8(self):
+        self._run_phase('flake8', 'flake8', self._target)
 
-    def install_sdist(self, sdist):
-        self._run_user_test(
-            'install-sdist',
-            'pip', '--verbose',
-            'install',
-            '--download-cache', self._pipcache,
-            sdist)
-
-    def create_sdist(self):
+    def run_phase_setup_sdist(self):
         setup = self._target_path('setup.py')
         distdir = self._base_path('dist')
         os.mkdir(distdir)
-        self._venv_run(
+        self._run_phase(
             'setup-sdist',
             'python',
             setup,
@@ -178,10 +171,18 @@ class Onslaught (object):
             distdir)
         [distname] = os.listdir(distdir)
         sdist = os.path.join(distdir, distname)
-        self._log.info('Testing generated sdist: %r', sdist)
+        self._log.debug('Testing generated sdist: %r', sdist)
         return sdist
 
-    def run_unit_tests_with_coverage(self, sdist):
+    def run_phase_install_sdist(self, sdist):
+        self._run_phase(
+            'install-sdist',
+            'pip', '--verbose',
+            'install',
+            '--download-cache', self._pipcache,
+            sdist)
+
+    def run_phase_unittest(self, sdist):
         pkgname = self._determine_packagename(sdist)
         self._venv_run(
             'unittests',
@@ -224,7 +225,7 @@ class Onslaught (object):
             '--download-cache', self._pipcache,
             spec)
 
-    def _run_user_test(self, phase, *args):
+    def _run_phase(self, phase, *args):
         def phase_log(tmpl, *args):
             self._log.info('Test Phase %r: ' + tmpl, phase, *args)
 
