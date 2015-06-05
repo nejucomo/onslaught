@@ -240,12 +240,9 @@ class Onslaught (object):
             spec)
 
     def _run_phase(self, phase, *args):
-        def phase_log(tmpl, *args):
-            self._log.info('Test Phase %r: ' + tmpl, phase, *args)
-
-        phase_log('running...')
+        self._log.debug('Test Phase %r running...', phase)
         try:
-            return self._run(phase, *args)
+            logpath = self._run(phase, *args)
         except subprocess.CalledProcessError as e:
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
@@ -253,10 +250,14 @@ class Onslaught (object):
             with file(path, 'r') as f:
                 info = f.read()
 
-            phase_log('FAILED:\n%s', info)
+            self._log.warn('Test Phase %r - FAILED:\n%s', phase, info)
             raise SystemExit(ExitUserFail)
+        except Exception as e:
+            self._log.error('Test Phase %r - unexpected error: %s', phase, e)
+            raise
         else:
-            phase_log('passed.')
+            self._log.info('Test Phase %r - passed.', phase)
+            return logpath
 
     def _determine_packagename(self, sdist):
         setup = self._target_path('setup.py')
