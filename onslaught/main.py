@@ -204,7 +204,6 @@ class Onslaught (object):
             'run',
             '--branch',
             self._venv_bin('trial'),
-            '--verbose',
             pkgname)
 
     # Private below:
