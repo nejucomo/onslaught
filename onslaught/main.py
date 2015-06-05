@@ -137,7 +137,7 @@ class Onslaught (object):
         os.chdir(workdir)
 
     def prepare_virtualenv(self):
-        self._log.info('Preparing virtualenv.')
+        self._log.debug('Preparing virtualenv.')
         self._run('virtualenv', 'virtualenv', self._venv)
 
     def install_cached_packages(self):
@@ -217,6 +217,10 @@ class Onslaught (object):
             return pipcache
 
     def _run_user_test(self, phase, *args):
+        def phase_log(tmpl, *args):
+            self._log.info('Test Phase %r: ' + tmpl, phase, *args)
+
+        phase_log('running...')
         try:
             self._venv_run(phase, *args)
         except subprocess.CalledProcessError as e:
@@ -226,8 +230,10 @@ class Onslaught (object):
             with file(path, 'r') as f:
                 info = f.read()
 
-            self._log.info('The test phase %r failed:\n%s', phase, info)
+            phase_log('FAILED:\n%s', info)
             raise SystemExit(ExitUserFail)
+        else:
+            phase_log('passed.')
 
     def _determine_packagename(self, sdist):
         setup = self._target_path('setup.py')
