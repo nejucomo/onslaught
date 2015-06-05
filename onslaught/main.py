@@ -1,11 +1,13 @@
 import os
 import sys
 import errno
-import argparse
+import shutil
+import pprint
 import logging
+import argparse
 import tempfile
-import subprocess
 import traceback
+import subprocess
 
 
 Description = """\
@@ -31,20 +33,19 @@ def main(args=sys.argv[1:]):
 
 
 def run_onslaught(target):
-    onslaught = Onslaught(target)
-    onslaught.chdir_to_workdir()
+    with OnslaughtSession(target) as onslaught:
+        onslaught.chdir_to_workdir()
+        onslaught.prepare_virtualenv()
+        onslaught.install_cached_packages()
+        onslaught.install_test_utility_packages()
 
-    onslaught.prepare_virtualenv()
-    onslaught.install_cached_packages()
-    onslaught.install_test_utility_packages()
+        onslaught.run_phase_flake8()
 
-    onslaught.run_phase_flake8()
+        sdist = onslaught.run_sdist_setup_phases()
+        onslaught.run_phase_install_sdist(sdist)
+        onslaught.run_phase_unittest(sdist)
 
-    sdist = onslaught.run_sdist_setup_phases()
-    onslaught.run_phase_install_sdist(sdist)
-    onslaught.run_phase_unittest(sdist)
-
-    raise NotImplementedError(repr(run_onslaught))
+        raise NotImplementedError(repr(run_onslaught))
 
 
 def parse_args(args):
@@ -93,6 +94,34 @@ def init_logging(level):
             datefmt=DateFormat))
 
     root.addHandler(handler)
+
+
+class OnslaughtSession (object):
+    def __init__(self, target):
+        self._target = target
+
+    def __enter__(self):
+        self._manifest = set(self._create_manifest())
+        return Onslaught(self._target)
+
+    def __exit__(self, *a):
+        log = logging.getLogger('cleanup')
+        log.debug(
+            'Cleaning up anything created in %r during session; manifest:\n%s',
+            self._target,
+            pprint.pformat(self._manifest),
+        )
+
+        for p in self._create_manifest():
+            log.debug('Should we remove %r?', p)
+            if p not in self._manifest and os.path.exists(p):
+                log.debug('Removing: %r', p)
+                shutil.rmtree(p)
+
+    def _create_manifest(self):
+        for bd, ds, fs in os.walk(self._target):
+            for n in ds + fs:
+                yield os.path.join(bd, n)
 
 
 class Onslaught (object):
