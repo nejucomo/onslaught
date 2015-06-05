@@ -27,11 +27,13 @@ def main(args = sys.argv[1:]):
 
 def run_onslaught(target):
     onslaught = Onslaught(target)
-
     onslaught.chdir_to_workdir()
+
     onslaught.prepare_virtualenv()
     onslaught.install_cached_packages()
     onslaught.install_test_utility_packages()
+
+    onslaught.run_flake8()
 
     sdist = onslaught.create_sdist()
     onslaught.install('install-sdist', sdist)
@@ -149,6 +151,9 @@ class Onslaught (object):
             'install',
             '--download-cache', self._pipcache,
             spec)
+
+    def run_flake8(self):
+        self._venv_run('flake8', 'flake8', self._target)
 
     def create_sdist(self):
         setup = self._target_path('setup.py')
