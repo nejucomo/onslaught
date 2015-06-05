@@ -8,10 +8,11 @@ import subprocess
 import traceback
 
 
-DESCRIPTION = """\
+Description = """\
 Run the target python project through a battery of tests.
 """
 
+DateFormat = '%Y-%m-%dT%H:%M:%S%z'
 
 def main(args = sys.argv[1:]):
     opts = parse_args(args)
@@ -43,7 +44,7 @@ def run_onslaught(target):
 
 
 def parse_args(args):
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(description=Description)
 
     loggroup = parser.add_mutually_exclusive_group()
 
@@ -73,11 +74,6 @@ def parse_args(args):
     return opts
 
 
-LogFormatter = logging.Formatter(
-    fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
-    datefmt='%Y-%m-%dT%H:%M:%S%z')
-
-
 def init_logging(level):
     if level is None:
         level = logging.INFO
@@ -87,7 +83,11 @@ def init_logging(level):
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(level)
-    handler.setFormatter(LogFormatter)
+    handler.setFormatter(
+        logging.Formatter(
+            fmt='%(asctime)s %(message)s',
+            datefmt=DateFormat))
+
     root.addHandler(handler)
 
 
@@ -112,7 +112,11 @@ class Onslaught (object):
 
         os.mkdir(self._logdir)
         handler = logging.FileHandler(logpath)
-        handler.setFormatter(LogFormatter)
+        handler.setFormatter(
+            logging.Formatter(
+                fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
+                datefmt=DateFormat))
+
         logging.getLogger().addHandler(handler)
 
         self._log.debug('Created debug level log in: %r', logpath)
