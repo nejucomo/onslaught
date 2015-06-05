@@ -2,7 +2,6 @@ import os
 import sys
 import errno
 import shutil
-import pprint
 import logging
 import argparse
 import tempfile
@@ -90,7 +89,7 @@ def init_logging(level):
     handler.setLevel(level)
     handler.setFormatter(
         logging.Formatter(
-            fmt='%(asctime)s %(message)s',
+            fmt='%(message)s',
             datefmt=DateFormat))
 
     root.addHandler(handler)
@@ -105,17 +104,15 @@ class OnslaughtSession (object):
         return Onslaught(self._target)
 
     def __exit__(self, *a):
-        log = logging.getLogger('cleanup')
-        log.debug(
-            'Cleaning up anything created in %r during session; manifest:\n%s',
+        log = logging.getLogger('cleanup').debug
+        log(
+            'Cleaning up anything created in %r during session',
             self._target,
-            pprint.pformat(self._manifest),
         )
 
         for p in self._create_manifest():
-            log.debug('Should we remove %r?', p)
             if p not in self._manifest and os.path.exists(p):
-                log.debug('Removing: %r', p)
+                log('Removing: %r', p)
                 shutil.rmtree(p)
 
     def _create_manifest(self):
@@ -132,6 +129,7 @@ class Onslaught (object):
 
     def __init__(self, target):
         self._log = logging.getLogger(type(self).__name__)
+        self._log.info('Onslaught!')
 
         self._pipcache = self._init_pipcache()
 
@@ -140,7 +138,7 @@ class Onslaught (object):
         self._basedir = tempfile.mkdtemp(
             prefix='onslaught.',
             suffix='.' + targetname)
-        self._log.info('Onslaught results directory: %r', self._basedir)
+        self._log.info('Preparing results directory: %r', self._basedir)
 
         logpath = self._base_path('logs', 'main.log')
         self._logdir = os.path.dirname(logpath)
