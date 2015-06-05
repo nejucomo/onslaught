@@ -44,7 +44,7 @@ def run_onslaught(target):
         onslaught.run_phase_install_sdist(sdist)
         onslaught.run_phase_unittest(sdist)
 
-        raise NotImplementedError(repr(run_onslaught))
+        onslaught.generate_coverage_reports()
 
 
 def parse_args(args):
@@ -180,6 +180,14 @@ class Onslaught (object):
             name = spec.split()[0]
             logname = 'pip-install.{}'.format(name)
             self._install(logname, spec)
+
+    def generate_coverage_reports(self):
+        reportdir = self._base_path('coverage')
+        self._log.info('Generating coverage reports in: %r', reportdir)
+        self._run(
+            'coverage-report',
+            'coverage', 'html',
+            '--directory', reportdir)
 
     # User test phases:
     def run_phase_flake8(self):
