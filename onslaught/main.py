@@ -5,6 +5,7 @@ import argparse
 import logging
 import tempfile
 import subprocess
+import traceback
 
 
 DESCRIPTION = """\
@@ -17,7 +18,15 @@ def main(args = sys.argv[1:]):
     log = logging.getLogger('main')
     log.debug('Parsed opts: %r', opts)
 
-    onslaught = Onslaught(opts.TARGET)
+    try:
+        run_onslaught(opts.TARGET)
+    except Exception:
+        log.error(traceback.format_exc())
+        raise SystemExit(1)
+
+
+def run_onslaught(target):
+    onslaught = Onslaught(target)
     onslaught.prepare_virtualenv()
     onslaught.install_cached_packages()
     onslaught.install_test_utility_packages()
@@ -26,7 +35,7 @@ def main(args = sys.argv[1:]):
     onslaught.install('install-sdist', sdist)
     onslaught.run_unit_tests_with_coverage(sdist)
 
-    raise NotImplementedError(repr(main))
+    raise NotImplementedError(repr(run_onslaught))
 
 
 def parse_args(args):
