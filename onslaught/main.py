@@ -40,7 +40,7 @@ def run_onslaught(target):
 
     onslaught.run_phase_flake8()
 
-    sdist = onslaught.run_phase_setup_sdist()
+    sdist = onslaught.run_sdist_setup_phases()
     onslaught.run_phase_install_sdist(sdist)
     onslaught.run_phase_unittest(sdist)
 
@@ -156,15 +156,15 @@ class Onslaught (object):
 
     # User test phases:
     def run_phase_flake8(self):
-        self._run_phase('flake8', 'flake8', self._target)
+        self._run_phase('flake8', self._venv_bin('flake8'), self._target)
 
-    def run_phase_setup_sdist(self):
+    def run_sdist_setup_phases(self):
         setup = self._target_path('setup.py')
         distdir = self._base_path('dist')
         os.mkdir(distdir)
-        self._run_phase(
+        sdistlog = self._run_phase(
             'setup-sdist',
-            'python',
+            self._venv_bin('python'),
             setup,
             'sdist',
             '--dist-dir',
@@ -172,24 +172,29 @@ class Onslaught (object):
         [distname] = os.listdir(distdir)
         sdist = os.path.join(distdir, distname)
         self._log.debug('Testing generated sdist: %r', sdist)
+        self._run_phase(
+            'check-sdist-log',
+            'onslaught-check-sdist-log',
+            sdistlog)
         return sdist
 
     def run_phase_install_sdist(self, sdist):
         self._run_phase(
             'install-sdist',
-            'pip', '--verbose',
+            self._venv_bin('pip'),
+            '--verbose',
             'install',
             '--download-cache', self._pipcache,
             sdist)
 
     def run_phase_unittest(self, sdist):
         pkgname = self._determine_packagename(sdist)
-        self._venv_run(
+        self._run_phase(
             'unittests',
-            'coverage',
+            self._venv_bin('coverage'),
             'run',
             '--branch',
-            self._venv_bin_path('trial'),
+            self._venv_bin('trial'),
             '--verbose',
             pkgname)
 
@@ -200,7 +205,7 @@ class Onslaught (object):
     def _target_path(self, *parts):
         return os.path.join(self._target, *parts)
 
-    def _venv_bin_path(self, cmd):
+    def _venv_bin(self, cmd):
         return os.path.join(self._venv, 'bin', cmd)
 
     def _init_pipcache(self):
@@ -218,9 +223,10 @@ class Onslaught (object):
             return pipcache
 
     def _install(self, logname, spec):
-        self._venv_run(
+        self._run(
             logname,
-            'pip', '--verbose',
+            self._venv_bin('pip'),
+            '--verbose',
             'install',
             '--download-cache', self._pipcache,
             spec)
@@ -231,7 +237,7 @@ class Onslaught (object):
 
         phase_log('running...')
         try:
-            self._venv_run(phase, *args)
+            return self._run(phase, *args)
         except subprocess.CalledProcessError as e:
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
@@ -246,11 +252,8 @@ class Onslaught (object):
 
     def _determine_packagename(self, sdist):
         setup = self._target_path('setup.py')
-        py = self._venv_bin_path('python')
+        py = self._venv_bin('python')
         return subprocess.check_output([py, setup, '--name']).strip()
-
-    def _venv_run(self, logname, cmd, *args):
-        self._run(logname, self._venv_bin_path(cmd), *args)
 
     def _run(self, logname, *args):
         logfile = 'step-{0:02}.{1}.log'.format(self._logstep, logname)
@@ -265,3 +268,5 @@ class Onslaught (object):
         except subprocess.CalledProcessError as e:
             e.args += (('logpath', logpath),)
             raise
+        else:
+            return logpath

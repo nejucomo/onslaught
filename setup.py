@@ -15,6 +15,7 @@ setup(
     entry_points={
         'console_scripts': [
             'onslaught = onslaught.main:main',
+            'onslaught-check-sdist-log = onslaught.check_sdist_log:main',
             ],
         },
 
