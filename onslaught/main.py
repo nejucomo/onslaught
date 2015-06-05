@@ -18,7 +18,7 @@ ExitUserFail = 1
 ExitUnknownError = 2
 
 
-def main(args = sys.argv[1:]):
+def main(args=sys.argv[1:]):
     opts = parse_args(args)
     log = logging.getLogger('main')
     log.debug('Parsed opts: %r', opts)
@@ -97,7 +97,7 @@ def init_logging(level):
 
 class Onslaught (object):
     _TEST_DEPENDENCIES = [
-        'twisted >= 14.0', # For trial
+        'twisted >= 14.0',  # For trial
         'coverage == 3.7.1',
         ]
 
@@ -108,7 +108,9 @@ class Onslaught (object):
 
         self._target = os.path.abspath(target)
         targetname = os.path.basename(self._target)
-        self._basedir = tempfile.mkdtemp(prefix='onslaught.', suffix='.' + targetname)
+        self._basedir = tempfile.mkdtemp(
+            prefix='onslaught.',
+            suffix='.' + targetname)
         self._log.info('Onslaught results directory: %r', self._basedir)
 
         logpath = self._base_path('logs', 'main.log')
@@ -128,7 +130,7 @@ class Onslaught (object):
         self._venv = self._base_path('venv')
 
     def chdir_to_workdir(self):
-        """chdir to a 'workdir' so that commands which pollute cwd will put stuff there."""
+        """chdir to a 'workdir' to keep caller cwd and target dir clean."""
         workdir = self._base_path('workdir')
         self._log.debug('Create and chdir to: %r', workdir)
         os.mkdir(workdir)
@@ -170,7 +172,7 @@ class Onslaught (object):
         self._venv_run(
             'setup-sdist',
             'python',
-             setup,
+            setup,
             'sdist',
             '--dist-dir',
             distdir)
