@@ -14,6 +14,10 @@ Run the target python project through a battery of tests.
 
 DateFormat = '%Y-%m-%dT%H:%M:%S%z'
 
+ExitUserFail = 1
+ExitUnknownError = 2
+
+
 def main(args = sys.argv[1:]):
     opts = parse_args(args)
     log = logging.getLogger('main')
@@ -23,7 +27,7 @@ def main(args = sys.argv[1:]):
         run_onslaught(opts.TARGET)
     except Exception:
         log.error(traceback.format_exc())
-        raise SystemExit(1)
+        raise SystemExit(ExitUnknownError)
 
 
 def run_onslaught(target):
@@ -157,7 +161,7 @@ class Onslaught (object):
             spec)
 
     def run_flake8(self):
-        self._venv_run('flake8', 'flake8', self._target)
+        self._run_user_test('flake8', 'flake8', self._target)
 
     def create_sdist(self):
         setup = self._target_path('setup.py')
@@ -210,6 +214,19 @@ class Onslaught (object):
             self._log.debug('Created %r', pipcache)
             return pipcache
 
+    def _run_user_test(self, phase, *args):
+        try:
+            self._venv_run(phase, *args)
+        except subprocess.CalledProcessError as e:
+            (tag, path) = e.args[-1]
+            assert tag == 'logpath', repr(e.args)
+
+            with file(path, 'r') as f:
+                info = f.read()
+
+            self._log.info('The test phase %r failed:\n%s', phase, info)
+            raise SystemExit(ExitUserFail)
+
     def _determine_packagename(self, sdist):
         setup = self._target_path('setup.py')
         py = self._venv_bin_path('python')
@@ -225,5 +242,9 @@ class Onslaught (object):
         logpath = os.path.join(self._logdir, logfile)
         self._log.debug('Running: %r; logfile %r', args, logfile)
 
-        with file(logpath, 'w') as f:
-            subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
+        try:
+            with file(logpath, 'w') as f:
+                subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            e.args += (('logpath', logpath),)
+            raise
