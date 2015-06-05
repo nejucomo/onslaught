@@ -98,7 +98,7 @@ def init_logging(level):
 
 class OnslaughtSession (object):
     def __init__(self, target):
-        self._target = target
+        self._target = os.path.abspath(target)
 
     def __enter__(self):
         self._manifest = set(self._create_manifest())
