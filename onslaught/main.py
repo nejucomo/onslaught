@@ -1,12 +1,10 @@
-import os
 import sys
-import errno
-import shutil
 import logging
 import argparse
 import tempfile
 import traceback
 import subprocess
+from onslaught.path import Path, Home
 
 
 Description = """\
@@ -25,7 +23,7 @@ def main(args=sys.argv[1:]):
     log.debug('Parsed opts: %r', opts)
 
     try:
-        run_onslaught(opts.TARGET)
+        run_onslaught(Path(opts.TARGET))
     except Exception:
         log.error(traceback.format_exc())
         raise SystemExit(ExitUnknownError)
@@ -33,18 +31,16 @@ def main(args=sys.argv[1:]):
 
 def run_onslaught(target):
     with OnslaughtSession(target) as onslaught:
-        onslaught.chdir_to_workdir()
-        onslaught.prepare_virtualenv()
-        onslaught.install_cached_packages()
-        onslaught.install_test_utility_packages()
+        with onslaught.pushd_workdir():
+            onslaught.prepare_virtualenv()
+            onslaught.install_cached_packages()
+            onslaught.install_test_utility_packages()
 
-        onslaught.run_phase_flake8()
+            onslaught.run_phase_flake8()
+            onslaught.run_sdist_phases()
+            onslaught.run_phase_unittest()
 
-        sdist = onslaught.run_sdist_setup_phases()
-        onslaught.run_phase_install_sdist(sdist)
-        onslaught.run_phase_unittest(sdist)
-
-        onslaught.generate_coverage_reports()
+            onslaught.generate_coverage_reports()
 
 
 def parse_args(args):
@@ -97,10 +93,10 @@ def init_logging(level):
 
 class OnslaughtSession (object):
     def __init__(self, target):
-        self._target = os.path.abspath(target)
+        self._target = target
 
     def __enter__(self):
-        self._manifest = set(self._create_manifest())
+        self._manifest = set(self._target.walk())
         return Onslaught(self._target)
 
     def __exit__(self, *a):
@@ -110,15 +106,9 @@ class OnslaughtSession (object):
             self._target,
         )
 
-        for p in self._create_manifest():
-            if p not in self._manifest and os.path.exists(p):
-                log('Removing: %r', p)
-                shutil.rmtree(p)
-
-    def _create_manifest(self):
-        for bd, ds, fs in os.walk(self._target):
-            for n in ds + fs:
-                yield os.path.join(bd, n)
+        for p in self._target.walk():
+            if p not in self._manifest and p.exists:
+                p.rmtree()
 
 
 class Onslaught (object):
@@ -133,18 +123,19 @@ class Onslaught (object):
 
         self._pipcache = self._init_pipcache()
 
-        self._target = os.path.abspath(target)
-        targetname = os.path.basename(self._target)
-        self._basedir = tempfile.mkdtemp(
-            prefix='onslaught.',
-            suffix='.' + targetname)
+        self._target = target
+        targetname = self._target.basename
+        self._basedir = Path(
+            tempfile.mkdtemp(
+                prefix='onslaught.',
+                suffix='.' + targetname))
         self._log.info('Preparing results directory: %r', self._basedir)
 
-        logpath = self._base_path('logs', 'main.log')
-        self._logdir = os.path.dirname(logpath)
+        logpath = self._basedir('logs', 'main.log')
+        self._logdir = logpath.parent
+        self._logdir.ensure_is_directory()
 
-        os.mkdir(self._logdir)
-        handler = logging.FileHandler(logpath)
+        handler = logging.FileHandler(str(logpath))
         handler.setFormatter(
             logging.Formatter(
                 fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
@@ -154,26 +145,24 @@ class Onslaught (object):
 
         self._log.debug('Created debug level log in: %r', logpath)
         self._logstep = 0
-        self._venv = self._base_path('venv')
+        self._vbin = self._basedir('venv', 'bin')
 
-    def chdir_to_workdir(self):
+    def pushd_workdir(self):
         """chdir to a 'workdir' to keep caller cwd and target dir clean."""
-        workdir = self._base_path('workdir')
-        self._log.debug('Create and chdir to: %r', workdir)
-        os.mkdir(workdir)
-        os.chdir(workdir)
+        workdir = self._basedir('workdir')
+        workdir.ensure_is_directory()
+        return workdir.pushd()
 
     def prepare_virtualenv(self):
         self._log.debug('Preparing virtualenv.')
-        self._run('virtualenv', 'virtualenv', self._venv)
+        self._run('virtualenv', 'virtualenv', self._basedir('venv'))
 
     def install_cached_packages(self):
         EXTENSIONS = ['.whl', '.zip', '.tar.bz2', '.tar.gz']
-        for n in os.listdir(self._pipcache):
+        for p in self._pipcache.listdir():
             for ext in EXTENSIONS:
-                if n.endswith(ext):
-                    path = os.path.join(self._pipcache, n)
-                    self._install('install-cached.{}'.format(n), path)
+                if p.basename.endswith(ext):
+                    self._install('install-cached.{}'.format(p.basename), p)
 
     def install_test_utility_packages(self):
         for spec in self._TEST_DEPENDENCIES:
@@ -182,7 +171,7 @@ class Onslaught (object):
             self._install(logname, spec)
 
     def generate_coverage_reports(self):
-        reportdir = self._base_path('coverage')
+        reportdir = self._basedir('coverage')
         self._log.info('Generating coverage reports in: %r', reportdir)
         self._run(
             'coverage-report',
@@ -191,20 +180,36 @@ class Onslaught (object):
 
     # User test phases:
     def run_phase_flake8(self):
-        self._run_phase('flake8', self._venv_bin('flake8'), self._target)
+        self._run_phase('flake8', self._vbin('flake8'), self._target)
 
-    def run_sdist_setup_phases(self):
-        setup = self._target_path('setup.py')
-        distdir = self._base_path('dist')
-        os.mkdir(distdir)
+    def run_sdist_phases(self):
+        sdist, sdistlog = self._run_phase_setup_sdist()
+
+        self._run_phase(
+            'check-sdist-log',
+            'onslaught-check-sdist-log',
+            sdistlog)
+
+        self._run_phase(
+            'install-sdist',
+            self._vbin('pip'),
+            '--verbose',
+            'install',
+            '--download-cache', self._pipcache,
+            sdist)
+
+    def _run_phase_setup_sdist(self):
+        setup = self._target('setup.py')
+        distdir = self._basedir('dist')
+        distdir.ensure_is_directory()
 
         # If you run setup.py sdist from a different directory, it
         # happily creates a tarball missing the source. :-<
-        with pushdir(self._target):
+        with self._target.pushd():
 
             sdistlog = self._run_phase(
                 'setup-sdist',
-                self._venv_bin('python'),
+                self._vbin('python'),
                 setup,
                 'sdist',
                 '--dist-dir',
@@ -213,62 +218,30 @@ class Onslaught (object):
         # Additionally, setup.py sdist has rudely pooped an egg-info
         # directly into the source directory, so clean that up:
 
-        [distname] = os.listdir(distdir)
-        sdist = os.path.join(distdir, distname)
-        self._log.debug('Testing generated sdist: %r', sdist)
-        self._run_phase(
-            'check-sdist-log',
-            'onslaught-check-sdist-log',
-            sdistlog)
-        return sdist
+        [sdist] = distdir.listdir()
+        self._log.debug('Generated sdist: %r', sdist)
+        return sdist, sdistlog
 
-    def run_phase_install_sdist(self, sdist):
-        self._run_phase(
-            'install-sdist',
-            self._venv_bin('pip'),
-            '--verbose',
-            'install',
-            '--download-cache', self._pipcache,
-            sdist)
-
-    def run_phase_unittest(self, sdist):
-        pkgname = self._determine_packagename(sdist)
+    def run_phase_unittest(self):
+        pkgname = self._determine_packagename()
         self._run_phase(
             'unittests',
-            self._venv_bin('coverage'),
+            self._vbin('coverage'),
             'run',
             '--branch',
-            self._venv_bin('trial'),
+            self._vbin('trial'),
             pkgname)
 
     # Private below:
-    def _base_path(self, *parts):
-        return os.path.join(self._basedir, *parts)
-
-    def _target_path(self, *parts):
-        return os.path.join(self._target, *parts)
-
-    def _venv_bin(self, cmd):
-        return os.path.join(self._venv, 'bin', cmd)
-
     def _init_pipcache(self):
-        pipcache = os.path.join(os.environ['HOME'], '.onslaught', 'pipcache')
-        try:
-            os.makedirs(pipcache)
-        except os.error as e:
-            if e.errno != errno.EEXIST:
-                raise
-            else:
-                # It already existed, no problem:
-                return pipcache
-        else:
-            self._log.debug('Created %r', pipcache)
-            return pipcache
+        pipcache = Home('.onslaught', 'pipcache')
+        pipcache.ensure_is_directory()
+        return pipcache
 
     def _install(self, logname, spec):
         self._run(
             logname,
-            self._venv_bin('pip'),
+            self._vbin('pip'),
             '--verbose',
             'install',
             '--download-cache', self._pipcache,
@@ -282,7 +255,7 @@ class Onslaught (object):
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
 
-            with file(path, 'r') as f:
+            with path.open('r') as f:
                 info = f.read()
 
             self._log.warn('Test Phase %r - FAILED:\n%s', phase, info)
@@ -294,35 +267,25 @@ class Onslaught (object):
             self._log.info('Test Phase %r - passed.', phase)
             return logpath
 
-    def _determine_packagename(self, sdist):
-        setup = self._target_path('setup.py')
-        py = self._venv_bin('python')
+    def _determine_packagename(self):
+        setup = str(self._target('setup.py'))
+        py = str(self._vbin('python'))
         return subprocess.check_output([py, setup, '--name']).strip()
 
     def _run(self, logname, *args):
+        args = map(str, args)
+
         logfile = 'step-{0:02}.{1}.log'.format(self._logstep, logname)
         self._logstep += 1
 
-        logpath = os.path.join(self._logdir, logfile)
         self._log.debug('Running: %r; logfile %r', args, logfile)
 
+        logpath = self._logdir(logfile)
         try:
-            with file(logpath, 'w') as f:
+            with logpath.open('w') as f:
                 subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             e.args += (('logpath', logpath),)
             raise
         else:
             return logpath
-
-
-class pushdir (object):
-    def __init__(self, d):
-        self._d = d
-        self._old = os.getcwd()
-
-    def __enter__(self):
-        os.chdir(self._d)
-
-    def __exit__(self, *a):
-        os.chdir(self._old)
