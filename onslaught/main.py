@@ -41,7 +41,7 @@ def run_onslaught(target):
     onslaught.run_flake8()
 
     sdist = onslaught.create_sdist()
-    onslaught.install('install-sdist', sdist)
+    onslaught.install_sdist(sdist)
     onslaught.run_unit_tests_with_coverage(sdist)
 
     raise NotImplementedError(repr(run_onslaught))
@@ -146,24 +146,24 @@ class Onslaught (object):
             for ext in EXTENSIONS:
                 if n.endswith(ext):
                     path = os.path.join(self._pipcache, n)
-                    self.install('install-cached.{}'.format(n), path)
+                    self._install('install-cached.{}'.format(n), path)
 
     def install_test_utility_packages(self):
         for spec in self._TEST_DEPENDENCIES:
             name = spec.split()[0]
             logname = 'pip-install.{}'.format(name)
-            self.install(logname, spec)
-
-    def install(self, logname, spec):
-        self._venv_run(
-            logname,
-            'pip', '--verbose',
-            'install',
-            '--download-cache', self._pipcache,
-            spec)
+            self._install(logname, spec)
 
     def run_flake8(self):
         self._run_user_test('flake8', 'flake8', self._target)
+
+    def install_sdist(self, sdist):
+        self._run_user_test(
+            'install-sdist',
+            'pip', '--verbose',
+            'install',
+            '--download-cache', self._pipcache,
+            sdist)
 
     def create_sdist(self):
         setup = self._target_path('setup.py')
@@ -215,6 +215,14 @@ class Onslaught (object):
         else:
             self._log.debug('Created %r', pipcache)
             return pipcache
+
+    def _install(self, logname, spec):
+        self._venv_run(
+            logname,
+            'pip', '--verbose',
+            'install',
+            '--download-cache', self._pipcache,
+            spec)
 
     def _run_user_test(self, phase, *args):
         def phase_log(tmpl, *args):
