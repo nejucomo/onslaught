@@ -27,6 +27,8 @@ def main(args = sys.argv[1:]):
 
 def run_onslaught(target):
     onslaught = Onslaught(target)
+
+    onslaught.chdir_to_workdir()
     onslaught.prepare_virtualenv()
     onslaught.install_cached_packages()
     onslaught.install_test_utility_packages()
@@ -114,6 +116,13 @@ class Onslaught (object):
         self._log.debug('Created debug level log in: %r', logpath)
         self._logstep = 0
         self._venv = self._base_path('venv')
+
+    def chdir_to_workdir(self):
+        """chdir to a 'workdir' so that commands which pollute cwd will put stuff there."""
+        workdir = self._base_path('workdir')
+        self._log.debug('Create and chdir to: %r', workdir)
+        os.mkdir(workdir)
+        os.chdir(workdir)
 
     def prepare_virtualenv(self):
         self._log.info('Preparing virtualenv.')
