@@ -162,13 +162,22 @@ class Onslaught (object):
         setup = self._target_path('setup.py')
         distdir = self._base_path('dist')
         os.mkdir(distdir)
-        sdistlog = self._run_phase(
-            'setup-sdist',
-            self._venv_bin('python'),
-            setup,
-            'sdist',
-            '--dist-dir',
-            distdir)
+
+        # If you run setup.py sdist from a different directory, it
+        # happily creates a tarball missing the source. :-<
+        with pushdir(self._target):
+
+            sdistlog = self._run_phase(
+                'setup-sdist',
+                self._venv_bin('python'),
+                setup,
+                'sdist',
+                '--dist-dir',
+                distdir)
+
+        # Additionally, setup.py sdist has rudely pooped an egg-info
+        # directly into the source directory, so clean that up:
+
         [distname] = os.listdir(distdir)
         sdist = os.path.join(distdir, distname)
         self._log.debug('Testing generated sdist: %r', sdist)
@@ -270,3 +279,15 @@ class Onslaught (object):
             raise
         else:
             return logpath
+
+
+class pushdir (object):
+    def __init__(self, d):
+        self._d = d
+        self._old = os.getcwd()
+
+    def __enter__(self):
+        os.chdir(self._d)
+
+    def __exit__(self, *a):
+        os.chdir(self._old)
