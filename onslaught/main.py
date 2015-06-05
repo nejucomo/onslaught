@@ -18,11 +18,13 @@ def main(args = sys.argv[1:]):
     log.debug('Parsed opts: %r', opts)
 
     onslaught = Onslaught(opts.TARGET)
-
     onslaught.prepare_virtualenv()
+    onslaught.install_cached_packages()
+    onslaught.install_test_utility_packages()
 
     sdist = onslaught.create_sdist()
     onslaught.install('install-sdist', sdist)
+    onslaught.run_unit_tests_with_coverage(sdist)
 
     raise NotImplementedError(repr(main))
 
@@ -108,6 +110,15 @@ class Onslaught (object):
         self._log.info('Preparing virtualenv.')
         self._run('virtualenv', 'virtualenv', self._venv)
 
+    def install_cached_packages(self):
+        EXTENSIONS = ['.whl', '.zip', '.tar.bz2', '.tar.gz']
+        for n in os.listdir(self._pipcache):
+            for ext in EXTENSIONS:
+                if n.endswith(ext):
+                    path = os.path.join(self._pipcache, n)
+                    self.install('install-cached.{}'.format(n), path)
+
+    def install_test_utility_packages(self):
         for spec in self._TEST_DEPENDENCIES:
             name = spec.split()[0]
             logname = 'pip-install.{}'.format(name)
@@ -137,11 +148,26 @@ class Onslaught (object):
         self._log.info('Testing generated sdist: %r', sdist)
         return sdist
 
+    def run_unit_tests_with_coverage(self, sdist):
+        pkgname = self._determine_packagename(sdist)
+        self._venv_run(
+            'unittests',
+            'coverage',
+            'run',
+            '--branch',
+            self._venv_bin_path('trial'),
+            '--verbose',
+            pkgname)
+
+    # Private below:
     def _base_path(self, *parts):
         return os.path.join(self._basedir, *parts)
 
     def _target_path(self, *parts):
         return os.path.join(self._target, *parts)
+
+    def _venv_bin_path(self, cmd):
+        return os.path.join(self._venv, 'bin', cmd)
 
     def _init_pipcache(self):
         pipcache = os.path.join(os.environ['HOME'], '.onslaught', 'pipcache')
@@ -157,12 +183,16 @@ class Onslaught (object):
             self._log.debug('Created %r', pipcache)
             return pipcache
 
+    def _determine_packagename(self, sdist):
+        setup = self._target_path('setup.py')
+        py = self._venv_bin_path('python')
+        return subprocess.check_output([py, setup, '--name']).strip()
+
     def _venv_run(self, logname, cmd, *args):
-        venvpath = os.path.join(self._venv, 'bin', cmd)
-        self._run(logname, venvpath, *args)
+        self._run(logname, self._venv_bin_path(cmd), *args)
 
     def _run(self, logname, *args):
-        logfile = 'step-{0}.{1}.log'.format(self._logstep, logname)
+        logfile = 'step-{0:02}.{1}.log'.format(self._logstep, logname)
         self._logstep += 1
 
         logpath = os.path.join(self._logdir, logfile)
