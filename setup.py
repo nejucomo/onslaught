@@ -9,6 +9,7 @@ setup(
     author='Nathan Wilcox',
     author_email='nejucomo@gmail.com',
     license='GPLv3',
+    url='https://github.com/nejucomo/onslaught',
 
     packages=find_packages(),
 
