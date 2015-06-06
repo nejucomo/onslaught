@@ -83,6 +83,17 @@ class Path (object):
 Home = Path(os.environ['HOME'])
 
 
+def search_executable_path(name):
+    for d in map(Path, os.environ['PATH'].split(os.pathsep)):
+        p = d(name)
+        if p.exists:
+            return p
+    assert False, \
+        'Could not find required executable {!r} on PATH {!r}.'.format(
+            name,
+            os.environ['PATH'])
+
+
 class _PushdContext (object):
     def __init__(self, dest):
         self._d = dest

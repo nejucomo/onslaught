@@ -2,7 +2,7 @@ import sys
 import logging
 import subprocess
 from onslaught.consts import DateFormat, ExitUserFail
-from onslaught.path import Path, Home
+from onslaught.path import Path, Home, search_executable_path
 
 
 class Session (object):
@@ -17,6 +17,7 @@ class Session (object):
 
         self._logstep = 0
         self._vbin = self._resdir('venv', 'bin')
+        self._trial = search_executable_path('trial')
 
     def pushd_workdir(self):
         """chdir to a 'workdir' to keep caller cwd and target dir clean."""
@@ -90,7 +91,8 @@ class Session (object):
             'coverage', 'run',
             '--branch',
             '--source', self._pkgname,
-            'trial', self._pkgname)
+            self._trial,
+            self._pkgname)
 
     # Private below:
     def _init_packagename(self):
