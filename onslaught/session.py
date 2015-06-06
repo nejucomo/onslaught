@@ -20,20 +20,8 @@ class Session (object):
         self._pipcache = self._init_pipcache()
         self._pkgname = self._init_packagename()
         self._basedir = self._init_results_dir(results)
+        self._logdir = self._init_logdir()
 
-        logpath = self._basedir('logs', 'main.log')
-        self._logdir = logpath.parent
-        self._logdir.ensure_is_directory()
-
-        handler = logging.FileHandler(str(logpath))
-        handler.setFormatter(
-            logging.Formatter(
-                fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
-                datefmt=DateFormat))
-
-        logging.getLogger().addHandler(handler)
-
-        self._log.debug('Created debug level log in: %r', logpath)
         self._logstep = 0
         self._vbin = self._basedir('venv', 'bin')
 
@@ -145,6 +133,22 @@ class Session (object):
         results.rmtree()
         results.ensure_is_directory()
         return results
+
+    def _init_logdir(self):
+        logpath = self._basedir('logs', 'main.log')
+        logdir = logpath.parent
+        logdir.ensure_is_directory()
+
+        handler = logging.FileHandler(str(logpath))
+        handler.setFormatter(
+            logging.Formatter(
+                fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
+                datefmt=DateFormat))
+
+        logging.getLogger().addHandler(handler)
+
+        self._log.debug('Created debug level log in: %r', logpath)
+        return logdir
 
     def _install(self, logname, spec):
         self._run(
