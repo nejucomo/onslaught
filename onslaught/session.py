@@ -1,3 +1,4 @@
+import sys
 import logging
 import tempfile
 import subprocess
@@ -12,17 +13,18 @@ class Session (object):
         ]
 
     def __init__(self, target):
+        self._target = target
+
         self._log = logging.getLogger(type(self).__name__)
         self._log.info('Onslaught!')
 
         self._pipcache = self._init_pipcache()
+        self._pkgname = self._init_packagename()
 
-        self._target = target
-        targetname = self._target.basename
         self._basedir = Path(
             tempfile.mkdtemp(
                 prefix='onslaught.',
-                suffix='.' + targetname))
+                suffix='.' + self._pkgname))
         self._log.info('Preparing results directory: %r', self._basedir)
 
         logpath = self._basedir('logs', 'main.log')
@@ -117,16 +119,20 @@ class Session (object):
         return sdist, sdistlog
 
     def run_phase_unittest(self):
-        pkgname = self._determine_packagename()
         self._run_phase(
             'unittests',
             self._vbin('coverage'),
             'run',
             '--branch',
             self._vbin('trial'),
-            pkgname)
+            self._pkgname)
 
     # Private below:
+    def _init_packagename(self):
+        setup = str(self._target('setup.py'))
+        py = sys.executable
+        return subprocess.check_output([py, setup, '--name']).strip()
+
     def _init_pipcache(self):
         pipcache = Home('.onslaught', 'pipcache')
         pipcache.ensure_is_directory()
@@ -160,11 +166,6 @@ class Session (object):
         else:
             self._log.info('Test Phase %r - passed.', phase)
             return logpath
-
-    def _determine_packagename(self):
-        setup = str(self._target('setup.py'))
-        py = str(self._vbin('python'))
-        return subprocess.check_output([py, setup, '--name']).strip()
 
     def _run(self, logname, *args):
         args = map(str, args)
