@@ -52,9 +52,14 @@ class Session (object):
         reportdir = self._resdir('coverage')
         self._log.info('Generating coverage reports in: %r', reportdir)
         self._run(
-            'coverage-report',
+            'coverage-report-html',
             'coverage', 'html',
             '--directory', reportdir)
+        logpath = self._run(
+            'coverage-report-stdout',
+            'coverage', 'report')
+        with logpath.open('r') as f:
+            self._log.info('Coverage:\n%s', f.read())
 
     # User test phases:
     def run_phase_flake8(self):
