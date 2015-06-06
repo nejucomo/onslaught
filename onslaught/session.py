@@ -15,8 +15,6 @@ class Session (object):
         self._realtarget = Path(target)
 
         self._log = logging.getLogger(type(self).__name__)
-        self._log.info('Onslaught!')
-
         self._pipcache = self._init_pipcache()
         self._pkgname = self._init_packagename()
         self._resdir = self._init_results_dir(results)
