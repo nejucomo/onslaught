@@ -30,7 +30,6 @@ def run_onslaught(target, results):
         s.run_phase_flake8()
 
         s.prepare_virtualenv()
-        s.install_cached_packages()
         s.install_test_utility_packages()
 
         s.run_sdist_phases()
