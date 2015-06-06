@@ -50,7 +50,7 @@ class Session (object):
 
     def generate_coverage_reports(self):
         reportdir = self._resdir('coverage')
-        self._log.info('Generating coverage reports in: %r', reportdir)
+        self._log.info('Generating HTML coverage reports in: %r', reportdir)
         self._run(
             'coverage-report-html',
             'coverage', 'html',
@@ -166,9 +166,10 @@ class Session (object):
             spec)
 
     def _run_phase(self, phase, *args):
-        self._log.debug('Test Phase %r running...', phase)
+        logpref = 'Test Phase {!r:18}'.format(phase)
+        self._log.debug('%s running...', logpref)
         try:
-            logpath = self._run(phase, *args)
+            logpath = self._run('phase.'+phase, *args)
         except subprocess.CalledProcessError as e:
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
@@ -176,19 +177,19 @@ class Session (object):
             with path.open('r') as f:
                 info = f.read()
 
-            self._log.warn('Test Phase %r - FAILED:\n%s', phase, info)
+            self._log.warn('%s - FAILED:\n%s', logpref, info)
             raise SystemExit(ExitUserFail)
         except Exception as e:
-            self._log.error('Test Phase %r - unexpected error: %s', phase, e)
+            self._log.error('%s - unexpected error: %s', logpref, e)
             raise
         else:
-            self._log.info('Test Phase %r - passed.', phase)
+            self._log.info('%s - passed.', logpref)
             return logpath
 
     def _run(self, logname, *args):
         args = map(str, args)
 
-        logfile = 'step-{0:02}.{1}.log'.format(self._logstep, logname)
+        logfile = '{0:02}.{1}.log'.format(self._logstep, logname)
         self._logstep += 1
 
         self._log.debug('Running: %r; logfile %r', args, logfile)
