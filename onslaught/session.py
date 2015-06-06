@@ -62,7 +62,7 @@ class Session (object):
 
     # User test phases:
     def run_phase_flake8(self):
-        self._run_phase('flake8', self._vbin('flake8'), self._target)
+        self._run_phase('flake8', 'flake8', self._realtarget)
 
     def run_sdist_phases(self):
         sdist, sdistlog = self._run_phase_setup_sdist()
