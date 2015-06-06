@@ -19,15 +19,16 @@ def main(args=sys.argv[1:]):
     log.debug('Parsed opts: %r', opts)
 
     try:
-        run_onslaught(Path(opts.TARGET))
+        run_onslaught(opts.TARGET, opts.RESULTS)
     except Exception:
         log.error(traceback.format_exc())
         raise SystemExit(ExitUnknownError)
 
 
-def run_onslaught(target):
+def run_onslaught(target, results):
+    target = Path(target)
     with target.cleanup_session():
-        s = Session(target)
+        s = Session(target, results)
         with s.pushd_workdir():
             s.prepare_virtualenv()
             s.install_cached_packages()
@@ -58,6 +59,14 @@ def parse_args(args):
         const=logging.DEBUG,
         dest='loglevel',
         help='Log everything.')
+
+    parser.add_argument(
+        '--results', '-r',
+        dest='RESULTS',
+        type=str,
+        default=None,
+        help=('Results directory which will be overwritten.'
+              + 'Default: ~/.onslaught/results/<packagename>'))
 
     parser.add_argument(
         'TARGET',

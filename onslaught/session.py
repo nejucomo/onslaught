@@ -1,6 +1,5 @@
 import sys
 import logging
-import tempfile
 import subprocess
 from onslaught.consts import DateFormat, ExitUserFail
 from onslaught.path import Path, Home
@@ -12,7 +11,7 @@ class Session (object):
         'coverage == 3.7.1',
         ]
 
-    def __init__(self, target):
+    def __init__(self, target, results):
         self._target = target
 
         self._log = logging.getLogger(type(self).__name__)
@@ -20,12 +19,7 @@ class Session (object):
 
         self._pipcache = self._init_pipcache()
         self._pkgname = self._init_packagename()
-
-        self._basedir = Path(
-            tempfile.mkdtemp(
-                prefix='onslaught.',
-                suffix='.' + self._pkgname))
-        self._log.info('Preparing results directory: %r', self._basedir)
+        self._basedir = self._init_results_dir(results)
 
         logpath = self._basedir('logs', 'main.log')
         self._logdir = logpath.parent
@@ -137,6 +131,20 @@ class Session (object):
         pipcache = Home('.onslaught', 'pipcache')
         pipcache.ensure_is_directory()
         return pipcache
+
+    def _init_results_dir(self, results):
+        if results is None:
+            results = Home('.onslaught', 'results', self._pkgname)
+            logf = self._log.info
+        else:
+            results = Path(results)
+            logf = self._log.debug
+
+        logf('Preparing results directory: %r', results)
+
+        results.rmtree()
+        results.ensure_is_directory()
+        return results
 
     def _install(self, logname, spec):
         self._run(

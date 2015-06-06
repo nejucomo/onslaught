@@ -65,8 +65,12 @@ class Path (object):
         return _PushdContext(self)
 
     def rmtree(self):
-        self._log.debug('rm -r %r', self)
-        shutil.rmtree(self._p)
+        self._log.debug('rm -rf %r', self)
+        try:
+            shutil.rmtree(self._p)
+        except os.error as e:
+            if e.errno != errno.ENOENT:
+                raise
 
     def walk(self):
         for bd, ds, fs in os.walk(self._p):
