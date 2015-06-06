@@ -37,6 +37,11 @@ me that they've used it successfully, or filed bugs, then I will release
 Philosophy
 ==========
 
+`onslaught` is a "badge". Tested software conforms to the `onslaught`,
+not vice versa. Therefore, a large fraction of software will not pass
+`onslaught` tests, especially popular and/or slowly evolving
+packages. This is fine.
+
 `onslaught`:
 
 - does not require your package's users to install it,
@@ -47,6 +52,11 @@ Philosophy
 - tests the `sdist` install process [#]_,
 - runs unittests against the installed process [#]_,
 - and always generates branch coverage reports.
+
+In other words, there should be no reason you don't run it against
+your codebase. If it fails and your codebase has legacy concerns, c'est
+la vie. If, on the other hand, you want to achieve and preserve the
+`onslaught` badge of awesomeness, then go for it. ;-)
 
 .. [#] No tests can be customized or disabled. All packages which pass
        the `onslaught` meet the same quality standards. The users current
@@ -59,3 +69,6 @@ Philosophy
 .. [#] So your unittests pass. Great! But does your software install?
 
 .. [#] Test the "production" form of your code, not dev source.
+
+**Note:** Currently `onslaught` is a prototype in flux, so take the
+above with a grain of salt.
