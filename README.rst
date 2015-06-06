@@ -20,12 +20,12 @@ Status
 This is "alpha" code. There are no unittests, which you can see by
 running the development commit acceptance process I've been using:
 
-```bash
-$ git clone 'https://github.com/nejucomo/onslaught'
-$ cd onslaught
-$ pip install .
-$ onslaught .
-```
+.. code:: bash
+
+   $ git clone 'https://github.com/nejucomo/onslaught'
+   $ cd onslaught
+   $ pip install .
+   $ onslaught .
 
 Roadmap
 =======
