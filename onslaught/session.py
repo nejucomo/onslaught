@@ -19,21 +19,21 @@ class Session (object):
 
         self._pipcache = self._init_pipcache()
         self._pkgname = self._init_packagename()
-        self._basedir = self._init_results_dir(results)
+        self._resdir = self._init_results_dir(results)
         self._logdir = self._init_logdir()
 
         self._logstep = 0
-        self._vbin = self._basedir('venv', 'bin')
+        self._vbin = self._resdir('venv', 'bin')
 
     def pushd_workdir(self):
         """chdir to a 'workdir' to keep caller cwd and target dir clean."""
-        workdir = self._basedir('workdir')
+        workdir = self._resdir('workdir')
         workdir.ensure_is_directory()
         return workdir.pushd()
 
     def prepare_virtualenv(self):
         self._log.debug('Preparing virtualenv.')
-        self._run('virtualenv', 'virtualenv', self._basedir('venv'))
+        self._run('virtualenv', 'virtualenv', self._resdir('venv'))
 
     def install_cached_packages(self):
         EXTENSIONS = ['.whl', '.zip', '.tar.bz2', '.tar.gz']
@@ -49,7 +49,7 @@ class Session (object):
             self._install(logname, spec)
 
     def generate_coverage_reports(self):
-        reportdir = self._basedir('coverage')
+        reportdir = self._resdir('coverage')
         self._log.info('Generating coverage reports in: %r', reportdir)
         self._run(
             'coverage-report',
@@ -78,7 +78,7 @@ class Session (object):
 
     def _run_phase_setup_sdist(self):
         setup = self._target('setup.py')
-        distdir = self._basedir('dist')
+        distdir = self._resdir('dist')
         distdir.ensure_is_directory()
 
         # If you run setup.py sdist from a different directory, it
@@ -135,7 +135,7 @@ class Session (object):
         return results
 
     def _init_logdir(self):
-        logpath = self._basedir('logs', 'main.log')
+        logpath = self._resdir('logs', 'main.log')
         logdir = logpath.parent
         logdir.ensure_is_directory()
 
