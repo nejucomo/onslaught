@@ -12,7 +12,7 @@ class Session (object):
         ]
 
     def __init__(self, target, results):
-        self._target = target
+        self._realtarget = Path(target)
 
         self._log = logging.getLogger(type(self).__name__)
         self._log.info('Onslaught!')
@@ -20,6 +20,7 @@ class Session (object):
         self._pipcache = self._init_pipcache()
         self._pkgname = self._init_packagename()
         self._resdir = self._init_results_dir(results)
+        self._target = self._init_target()
         self._logdir = self._init_logdir()
 
         self._logstep = 0
@@ -116,15 +117,15 @@ class Session (object):
             self._pkgname)
 
     # Private below:
-    def _init_packagename(self):
-        setup = str(self._target('setup.py'))
-        py = sys.executable
-        return subprocess.check_output([py, setup, '--name']).strip()
-
     def _init_pipcache(self):
         pipcache = Home('.onslaught', 'pipcache')
         pipcache.ensure_is_directory()
         return pipcache
+
+    def _init_packagename(self):
+        setup = str(self._realtarget('setup.py'))
+        py = sys.executable
+        return subprocess.check_output([py, setup, '--name']).strip()
 
     def _init_results_dir(self, results):
         if results is None:
@@ -139,6 +140,11 @@ class Session (object):
         results.rmtree()
         results.ensure_is_directory()
         return results
+
+    def _init_target(self):
+        target = self._resdir('targetsrc')
+        self._realtarget.copytree(target)
+        return target
 
     def _init_logdir(self):
         logpath = self._resdir('logs', 'main.log')

@@ -7,7 +7,7 @@ import logging
 class Path (object):
     def __init__(self, path):
         self._p = os.path.abspath(path)
-        self._log = logging.getLogger('path')
+        self._debug = logging.getLogger('path').debug
 
     @property
     def basename(self):
@@ -40,8 +40,9 @@ class Path (object):
         for n in os.listdir(self._p):
             yield self(n)
 
-    def cleanup_session(self):
-        return _CleanupSession(self)
+    def copytree(self, dst):
+        self._debug('cp -r %r %r', self, dst)
+        shutil.copytree(str(self), str(dst), symlinks=True)
 
     def ensure_is_directory(self):
         try:
@@ -53,7 +54,7 @@ class Path (object):
                 # It already existed, no problem:
                 return
         else:
-            self._log.debug('Created %r', self)
+            self._debug('Created %r', self)
 
     def listdir(self):
         return list(self)
@@ -65,7 +66,7 @@ class Path (object):
         return _PushdContext(self)
 
     def rmtree(self):
-        self._log.debug('rm -rf %r', self)
+        self._debug('rm -rf %r', self)
         try:
             shutil.rmtree(self._p)
         except os.error as e:
@@ -93,23 +94,3 @@ class _PushdContext (object):
 
     def __exit__(self, *a):
         os.chdir(self._old)
-
-
-class _CleanupSession (object):
-    def __init__(self, target):
-        self._target = target
-
-    def __enter__(self):
-        self._manifest = set(self._target.walk())
-        return self._target
-
-    def __exit__(self, *a):
-        log = logging.getLogger('cleanup').debug
-        log(
-            'Cleaning up anything created in %r during session',
-            self._target,
-        )
-
-        for p in self._target.walk():
-            if p not in self._manifest and p.exists:
-                p.rmtree()

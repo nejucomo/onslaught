@@ -3,7 +3,6 @@ import logging
 import argparse
 import traceback
 from onslaught.consts import ExitUnknownError, DateFormat
-from onslaught.path import Path
 from onslaught.session import Session
 
 
@@ -26,19 +25,17 @@ def main(args=sys.argv[1:]):
 
 
 def run_onslaught(target, results):
-    target = Path(target)
-    with target.cleanup_session():
-        s = Session(target, results)
-        with s.pushd_workdir():
-            s.prepare_virtualenv()
-            s.install_cached_packages()
-            s.install_test_utility_packages()
+    s = Session(target, results)
+    with s.pushd_workdir():
+        s.prepare_virtualenv()
+        s.install_cached_packages()
+        s.install_test_utility_packages()
 
-            s.run_phase_flake8()
-            s.run_sdist_phases()
-            s.run_phase_unittest()
+        s.run_phase_flake8()
+        s.run_sdist_phases()
+        s.run_phase_unittest()
 
-            s.generate_coverage_reports()
+        s.generate_coverage_reports()
 
 
 def parse_args(args):
