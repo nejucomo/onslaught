@@ -30,7 +30,8 @@ def main(args=sys.argv[1:]):
 
 
 def run_onslaught(target):
-    with OnslaughtSession(target) as onslaught:
+    with target.cleanup_session():
+        onslaught = Onslaught(target)
         with onslaught.pushd_workdir():
             onslaught.prepare_virtualenv()
             onslaught.install_cached_packages()
@@ -89,26 +90,6 @@ def init_logging(level):
             datefmt=DateFormat))
 
     root.addHandler(handler)
-
-
-class OnslaughtSession (object):
-    def __init__(self, target):
-        self._target = target
-
-    def __enter__(self):
-        self._manifest = set(self._target.walk())
-        return Onslaught(self._target)
-
-    def __exit__(self, *a):
-        log = logging.getLogger('cleanup').debug
-        log(
-            'Cleaning up anything created in %r during session',
-            self._target,
-        )
-
-        for p in self._target.walk():
-            if p not in self._manifest and p.exists:
-                p.rmtree()
 
 
 class Onslaught (object):
