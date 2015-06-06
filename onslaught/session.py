@@ -106,6 +106,7 @@ class Session (object):
             self._vbin('coverage'),
             'run',
             '--branch',
+            '--source', self._pkgname,
             self._vbin('trial'),
             self._pkgname)
 
