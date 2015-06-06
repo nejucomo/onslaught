@@ -21,7 +21,10 @@ setup(
         },
 
     install_requires=[
-        'flake8 >= 2.0',
-        'coverage >= 3.6',
+        # All of these dependencies are used for subprocesses, not
+        # modules, so hopefully this puts these utilities on PATH:
+        'coverage == 3.7.1',
+        'flake8 == 2.4',
+        'twisted == 15.2',
         ],
     )

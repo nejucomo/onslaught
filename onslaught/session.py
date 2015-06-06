@@ -6,16 +6,10 @@ from onslaught.path import Path, Home
 
 
 class Session (object):
-    _TEST_DEPENDENCIES = [
-        'twisted >= 14.0',  # For trial
-        'coverage == 3.7.1',
-        ]
-
     def __init__(self, target, results):
         self._realtarget = Path(target)
 
         self._log = logging.getLogger(type(self).__name__)
-        self._pipcache = self._init_pipcache()
         self._pkgname = self._init_packagename()
         self._resdir = self._init_results_dir(results)
         self._target = self._init_target()
@@ -33,19 +27,6 @@ class Session (object):
     def prepare_virtualenv(self):
         self._log.debug('Preparing virtualenv.')
         self._run('virtualenv', 'virtualenv', self._resdir('venv'))
-
-    def install_cached_packages(self):
-        EXTENSIONS = ['.whl', '.zip', '.tar.bz2', '.tar.gz']
-        for p in self._pipcache.listdir():
-            for ext in EXTENSIONS:
-                if p.basename.endswith(ext):
-                    self._install('install-cached.{}'.format(p.basename), p)
-
-    def install_test_utility_packages(self):
-        for spec in self._TEST_DEPENDENCIES:
-            name = spec.split()[0]
-            logname = 'pip-install.{}'.format(name)
-            self._install(logname, spec)
 
     def generate_coverage_reports(self):
         reportdir = self._resdir('coverage')
@@ -77,7 +58,6 @@ class Session (object):
             self._vbin('pip'),
             '--verbose',
             'install',
-            '--download-cache', self._pipcache,
             sdist)
 
     def _run_phase_setup_sdist(self):
@@ -107,19 +87,12 @@ class Session (object):
     def run_phase_unittest(self):
         self._run_phase(
             'unittests',
-            self._vbin('coverage'),
-            'run',
+            'coverage', 'run',
             '--branch',
             '--source', self._pkgname,
-            self._vbin('trial'),
-            self._pkgname)
+            'trial', self._pkgname)
 
     # Private below:
-    def _init_pipcache(self):
-        pipcache = Home('.onslaught', 'pipcache')
-        pipcache.ensure_is_directory()
-        return pipcache
-
     def _init_packagename(self):
         setup = str(self._realtarget('setup.py'))
         py = sys.executable
@@ -166,7 +139,6 @@ class Session (object):
             self._vbin('pip'),
             '--verbose',
             'install',
-            '--download-cache', self._pipcache,
             spec)
 
     def _run_phase(self, phase, *args):

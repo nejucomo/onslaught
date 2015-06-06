@@ -28,14 +28,9 @@ def run_onslaught(target, results):
     s = Session(target, results)
     with s.pushd_workdir():
         s.run_phase_flake8()
-
         s.prepare_virtualenv()
-        s.install_cached_packages()
-        s.install_test_utility_packages()
-
         s.run_sdist_phases()
         s.run_phase_unittest()
-
         s.generate_coverage_reports()
 
 
