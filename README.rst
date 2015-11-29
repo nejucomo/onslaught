@@ -14,6 +14,29 @@ Specific tests are:
 
 It also generates branch-coverage reports.
 
+`onslaught`:
+
+- does not require your package's users to install it,
+- has minimal configuration and customization [#]_,
+- leaves your source directory the way it found it,
+- leaves your base python packages unmodified,
+- ensures your project generates a clean `sdist` [#]_,
+- tests the `sdist` install process [#]_,
+- runs unittests against the installed process [#]_,
+- and always generates branch coverage reports.
+
+.. [#] No tests can be customized or disabled. All packages which pass
+       the `onslaught` meet the same quality standards. The users current
+       directory has no effect. Where possible, other configurability
+       will be removed.
+
+.. [#] This is strict: any ``warning:`` lines in the `sdist` creation
+       command are `onslaught` failures.
+
+.. [#] So your unittests pass. Great! But does your software install?
+
+.. [#] Test the "production" form of your code, not dev source.
+
 Status
 ======
 
@@ -42,33 +65,10 @@ not vice versa. Therefore, a large fraction of software will not pass
 `onslaught` tests, especially popular and/or slowly evolving
 packages. This is fine.
 
-`onslaught`:
-
-- does not require your package's users to install it,
-- has minimal configuration and customization [#]_,
-- leaves your source directory the way it found it,
-- leaves your base python packages unmodified,
-- ensures your project generates a clean `sdist` [#]_,
-- tests the `sdist` install process [#]_,
-- runs unittests against the installed process [#]_,
-- and always generates branch coverage reports.
-
 In other words, there should be no reason you don't run it against
 your codebase. If it fails and your codebase has legacy concerns, c'est
 la vie. If, on the other hand, you want to achieve and preserve the
 `onslaught` badge of awesomeness, then go for it. ;-)
-
-.. [#] No tests can be customized or disabled. All packages which pass
-       the `onslaught` meet the same quality standards. The users current
-       directory has no effect. Where possible, other configurability
-       will be removed.
-
-.. [#] This is strict: any ``warning:`` lines in the `sdist` creation
-       command are `onslaught` failures.
-
-.. [#] So your unittests pass. Great! But does your software install?
-
-.. [#] Test the "production" form of your code, not dev source.
 
 **Note:** Currently `onslaught` is a prototype in flux, so take the
 above with a grain of salt.
