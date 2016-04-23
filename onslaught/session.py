@@ -1,3 +1,5 @@
+import os
+import re
 import sys
 import logging
 import subprocess
@@ -40,12 +42,17 @@ class Session (object):
             self._install(logname, spec)
 
     def generate_coverage_reports(self):
-        reportdir = self._resdir('coverage')
-        self._log.info('Generating HTML coverage reports in: %r', reportdir)
+        rawrepdir = self._resdir('coverage.orig')
+        self._log.info('Generating HTML coverage reports in: %r', rawrepdir)
         self._run(
             'coverage-report-html',
             'coverage', 'html',
-            '--directory', reportdir)
+            '--directory', rawrepdir)
+
+        nicerepdir = self._resdir('coverage')
+        self._log.info('Editing coverage report paths into: %r', nicerepdir)
+        self._simplify_coverage_paths(rawrepdir, nicerepdir)
+
         logpath = self._run(
             'coverage-report-stdout',
             'coverage', 'report')
@@ -192,3 +199,29 @@ class Session (object):
             raise
         else:
             return logpath
+
+    def _simplify_coverage_paths(self, rawrepdir, nicerepdir):
+        rgx = re.compile(r'>/[/a-z0-9._-]+/site-packages/')
+
+        nicerepdir.ensure_is_directory()
+
+        for srcpath in rawrepdir.walk():
+            dstpath = nicerepdir(srcpath.basename)
+            if srcpath.basename.endswith('.html'):
+                self._log.debug(
+                    'Tidying paths from %r -> %r',
+                    srcpath,
+                    dstpath,
+                )
+
+                src = srcpath.read()
+                (dst, _) = rgx.subn('>&#x2026;/', src)
+                dstpath.write(dst)
+            elif srcpath.isfile:
+                srcpath.copyfile(dstpath)
+            else:
+                srcpath.copytree(dstpath)
+
+    def _mkdir(self, path):
+        self._log.debug('mkdir %r', path)
+        os.mkdir(path)

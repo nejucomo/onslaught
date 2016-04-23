@@ -21,6 +21,10 @@ class Path (object):
     def parent(self):
         return Path(os.path.dirname(self._p))
 
+    @property
+    def isfile(self):
+        return os.path.isfile(self._p)
+
     def __hash__(self):
         return hash(self._p)
 
@@ -39,6 +43,10 @@ class Path (object):
     def __iter__(self):
         for n in os.listdir(self._p):
             yield self(n)
+
+    def copyfile(self, dst):
+        self._debug('cp %r %r', self, dst)
+        shutil.copyfile(str(self), str(dst))
 
     def copytree(self, dst):
         self._debug('cp -r %r %r', self, dst)
@@ -61,6 +69,14 @@ class Path (object):
 
     def open(self, mode):
         return file(self._p, mode)
+
+    def read(self):
+        with self.open('r') as f:
+            return f.read()
+
+    def write(self, contents):
+        with self.open('w') as f:
+            return f.write(contents)
 
     def pushd(self):
         return _PushdContext(self)
