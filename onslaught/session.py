@@ -42,22 +42,30 @@ class Session (object):
             self._install(logname, spec)
 
     def generate_coverage_reports(self):
+        nicerepdir = self._resdir('coverage')
+        self._log.info('Generating HTML coverage reports in: %r', nicerepdir)
+
         rawrepdir = self._resdir('coverage.orig')
-        self._log.info('Generating HTML coverage reports in: %r', rawrepdir)
         self._run(
             'coverage-report-html',
             'coverage', 'html',
             '--directory', rawrepdir)
 
-        nicerepdir = self._resdir('coverage')
-        self._log.info('Editing coverage report paths into: %r', nicerepdir)
+        self._log.debug(
+            'Editing coverage report paths %r -> %r',
+            rawrepdir,
+            nicerepdir)
+
         self._simplify_coverage_paths(rawrepdir, nicerepdir)
 
         logpath = self._run(
             'coverage-report-stdout',
             'coverage', 'report')
+
         with logpath.open('r') as f:
-            self._log.info('Coverage:\n%s', f.read())
+            self._log.info(
+                'Coverage:\n%s',
+                self._replace_venv_paths(f.read(), '.../'))
 
     # User test phases:
     def run_phase_flake8(self):
@@ -103,6 +111,15 @@ class Session (object):
         return sdist, sdistlog
 
     def run_phase_unittest(self):
+
+        def filterlog(rawlogpath):
+            logpath = rawlogpath.parent(rawlogpath.basename + '.patched')
+            logpath.write(
+                self._replace_venv_paths(
+                    rawlogpath.read(),
+                    str(self._realtarget.parent) + '/'))
+            return logpath
+
         self._run_phase(
             'unittests',
             self._vbin('coverage'),
@@ -110,7 +127,9 @@ class Session (object):
             '--branch',
             '--source', self._pkgname,
             self._vbin('trial'),
-            self._pkgname)
+            self._pkgname,
+            filterlog=filterlog,
+        )
 
     # Private below:
     def _init_packagename(self):
@@ -161,11 +180,11 @@ class Session (object):
             'install',
             spec)
 
-    def _run_phase(self, phase, *args):
+    def _run_phase(self, phase, *args, **kw):
         logpref = 'Test Phase {!r:18}'.format(phase)
         self._log.debug('%s running...', logpref)
         try:
-            logpath = self._run('phase.'+phase, *args)
+            logpath = self._run('phase.'+phase, *args, **kw)
         except subprocess.CalledProcessError as e:
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
@@ -182,7 +201,10 @@ class Session (object):
             self._log.info('%s - passed.', logpref)
             return logpath
 
-    def _run(self, logname, *args):
+    def _run(self, logname, *args, **kw):
+        filterlog = kw.pop('filterlog', lambda lp: lp)
+        assert len(kw) == 0, 'Unexpected keyword args: {!r}'.format(kw)
+
         args = map(str, args)
 
         logfile = '{0:02}.{1}.log'.format(self._logstep, logname)
@@ -190,19 +212,17 @@ class Session (object):
 
         self._log.debug('Running: %r; logfile %r', args, logfile)
 
-        logpath = self._logdir(logfile)
+        rawlogpath = self._logdir(logfile)
         try:
-            with logpath.open('w') as f:
+            with rawlogpath.open('w') as f:
                 subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            e.args += (('logpath', logpath),)
+            e.args += (('logpath', filterlog(rawlogpath)),)
             raise
         else:
-            return logpath
+            return filterlog(rawlogpath)
 
     def _simplify_coverage_paths(self, rawrepdir, nicerepdir):
-        rgx = re.compile(r'>/[/a-z0-9._-]+/site-packages/')
-
         nicerepdir.ensure_is_directory()
 
         for srcpath in rawrepdir.walk():
@@ -215,12 +235,17 @@ class Session (object):
                 )
 
                 src = srcpath.read()
-                (dst, _) = rgx.subn('>&#x2026;/', src)
+                dst = self._replace_venv_paths(src, '&#x2026;/')
                 dstpath.write(dst)
+
             elif srcpath.isfile:
                 srcpath.copyfile(dstpath)
             else:
                 srcpath.copytree(dstpath)
+
+    def _replace_venv_paths(self, src, repl):
+        rgx = re.compile(r'/[/a-z0-9._-]+/site-packages/')
+        return rgx.subn(repl, src)[0]
 
     def _mkdir(self, path):
         self._log.debug('mkdir %r', path)
