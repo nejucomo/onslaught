@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='onslaught',
-    version='0.1.dev0',
+    version='0.1.dev1',
     author='Nathan Wilcox',
     author_email='nejucomo@gmail.com',
     license='GPLv3',
@@ -23,5 +23,6 @@ setup(
     install_requires=[
         'flake8 >= 2.0',
         'coverage >= 3.6',
+        'virtualenv >= 13.1.2',
         ],
     )
