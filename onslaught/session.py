@@ -65,7 +65,7 @@ class Session (object):
         with logpath.open('r') as f:
             self._log.info(
                 'Coverage:\n%s',
-                self._replace_venv_paths(f.read(), '.../'))
+                self._replace_venv_paths(f.read(), '...'))
 
     # User test phases:
     def run_phase_flake8(self):
@@ -117,7 +117,7 @@ class Session (object):
             logpath.write(
                 self._replace_venv_paths(
                     rawlogpath.read(),
-                    str(self._realtarget.parent) + '/'))
+                    str(self._realtarget)))
             return logpath
 
         self._run_phase(
@@ -235,7 +235,7 @@ class Session (object):
                 )
 
                 src = srcpath.read()
-                dst = self._replace_venv_paths(src, '&#x2026;/')
+                dst = self._replace_venv_paths(src, '&#x2026;')
                 dstpath.write(dst)
 
             elif srcpath.isfile:
@@ -244,8 +244,13 @@ class Session (object):
                 srcpath.copytree(dstpath)
 
     def _replace_venv_paths(self, src, repl):
-        rgx = re.compile(r'/[/a-z0-9._-]+/site-packages/')
-        return rgx.subn(repl, src)[0]
+        rgx = re.compile(
+            r'/[/a-z0-9._-]+/site-packages/{}'.format(
+                re.escape(self._pkgname),
+            ),
+        )
+        realrepl = '{}/{}'.format(repl, self._pkgname)
+        return rgx.subn(realrepl, src)[0]
 
     def _mkdir(self, path):
         self._log.debug('mkdir %r', path)
