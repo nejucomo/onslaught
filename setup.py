@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='onslaught',
-    version='0.1.dev1',
+    version='0.1.dev2',
     author='Nathan Wilcox',
     author_email='nejucomo@gmail.com',
     license='GPLv3',
