@@ -48,13 +48,17 @@ def publish_release():
     # TODO: require self-onslaught to pass as policy.
     # ref: https://github.com/nejucomo/onslaught/issues/8
 
-    def sh(*args):
-        print 'Running {!r}...'.format(args)
-        return subprocess.check_call(args)
+    def make_sh_func(subprocfunc):
+        def shfunc(*args):
+            print 'Running: {}'.format(' '.join([repr(a) for a in args]))
+            try:
+                return subprocfunc(args)
+            except subprocess.CalledProcessError as e:
+                raise SystemExit(str(e))
+        return shfunc
 
-    def shout(*args):
-        print 'Running {!r}...'.format(args)
-        return subprocess.check_output(args)
+    sh = make_sh_func(subprocess.check_call)
+    shout = make_sh_func(subprocess.check_output)
 
     gitstatus = shout('git', 'status', '--porcelain')
     if gitstatus.strip():
@@ -73,10 +77,8 @@ def publish_release():
         )
 
     version = shout('python', './setup.py', '--version').strip()
-    print 'Creating git tag: {!r}'.format(version)
     sh('git', 'tag', version)
 
-    print 'Uploading sdist...'
     sh(
         'python',
         './setup.py',
