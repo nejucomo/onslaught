@@ -10,7 +10,7 @@ from onslaught.path import Path, Home
 class Session (object):
     _TEST_DEPENDENCIES = [
         'twisted >= 14.0',  # For trial
-        'coverage == 3.7.1',
+        'coverage == 4.0.3',
         ]
 
     def __init__(self, target, results):
