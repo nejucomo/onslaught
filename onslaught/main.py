@@ -62,8 +62,8 @@ def parse_args(args):
         dest='RESULTS',
         type=str,
         default=None,
-        help=('Results directory which will be overwritten.'
-              + 'Default: ~/.onslaught/results/<packagename>'))
+        help=('Results directory which will be overwritten.' +
+              'Default: ~/.onslaught/results/<packagename>'))
 
     parser.add_argument(
         'TARGET',

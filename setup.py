@@ -33,6 +33,8 @@ def setup():
             'flake8 >= 2.0',
             'virtualenv >= 13.1.2',
         ],
+
+        test_suite='{}.tests'.format(PACKAGE),
     )
 
 
