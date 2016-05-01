@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 
-import sys
 import subprocess
 import setuptools
 
@@ -38,60 +37,70 @@ def setup():
         ],
 
         test_suite='{}.tests'.format(PACKAGE),
+
+        cmdclass={'release': ReleaseCommand},
     )
 
 
-def main(args=sys.argv[1:]):
-    if args == ['release']:
-        publish_release()
-    else:
-        setup()
+class ReleaseCommand (setuptools.Command):
+    """Prepare and distribute a release"""
 
+    description = __doc__
 
-def publish_release():
-    # TODO: require self-onslaught to pass as policy.
-    # ref: https://github.com/nejucomo/onslaught/issues/8
+    user_options = ()
 
-    def make_sh_func(subprocfunc):
-        def shfunc(*args):
-            print 'Running: {}'.format(' '.join([repr(a) for a in args]))
-            try:
-                return subprocfunc(args)
-            except subprocess.CalledProcessError as e:
-                raise SystemExit(str(e))
-        return shfunc
+    # def initialize_options(self):
+    #     """init options"""
+    #      pass
 
-    sh = make_sh_func(subprocess.check_call)
-    shout = make_sh_func(subprocess.check_output)
+    # def finalize_options(self):
+    #     """finalize options"""
+    #     pass
 
-    gitstatus = shout('git', 'status', '--porcelain')
-    if gitstatus.strip():
-        raise SystemExit(
-            'ABORT: dirty working directory:\n{}'.format(
-                gitstatus,
+    def run(self):
+        # TODO: require self-onslaught to pass as policy.
+        # ref: https://github.com/nejucomo/onslaught/issues/8
+
+        def make_sh_func(subprocfunc):
+            def shfunc(*args):
+                print 'Running: {}'.format(' '.join([repr(a) for a in args]))
+                try:
+                    return subprocfunc(args)
+                except subprocess.CalledProcessError as e:
+                    raise SystemExit(str(e))
+            return shfunc
+
+        sh = make_sh_func(subprocess.check_call)
+        shout = make_sh_func(subprocess.check_output)
+
+        gitstatus = shout('git', 'status', '--porcelain')
+        if gitstatus.strip():
+            raise SystemExit(
+                'ABORT: dirty working directory:\n{}'.format(
+                    gitstatus,
+                )
             )
+
+        branch = shout('git', 'rev-parse', '--abbrev-ref', 'HEAD').strip()
+        if branch != 'release':
+            raise SystemExit(
+                'ABORT: must be on release branch, not {!r}'.format(
+                    branch,
+                ),
+            )
+
+        version = shout('python', './setup.py', '--version').strip()
+        sh('git', 'tag', version)
+
+        sh(
+            'python',
+            './setup.py',
+            'sdist',
+            'upload',
+            '--sign',
+            '--identity', CODE_SIGNING_GPG_ID,
         )
-
-    branch = shout('git', 'rev-parse', '--abbrev-ref', 'HEAD').strip()
-    if branch != 'release':
-        raise SystemExit(
-            'ABORT: must be on release branch, not {!r}'.format(
-                branch,
-            ),
-        )
-
-    version = shout('python', './setup.py', '--version').strip()
-    sh('git', 'tag', version)
-
-    sh(
-        'python',
-        './setup.py',
-        'sdist',
-        'upload',
-        '--sign',
-        '--identity', CODE_SIGNING_GPG_ID,
-    )
 
 
 if __name__ == '__main__':
-    main()
+    setup()
