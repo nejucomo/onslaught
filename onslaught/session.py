@@ -4,19 +4,22 @@ import sys
 import logging
 import subprocess
 from onslaught.consts import DateFormat, ExitUserFail
-from onslaught.path import Path, Home
+from onslaught import path
 
 
 class Session (object):
     _TEST_DEPENDENCIES = [
         'twisted >= 14.0',  # For trial
         'coverage == 4.0.3',
-        ]
+    ]
 
-    def __init__(self, target, results):
-        self._realtarget = Path(target)
-
+    def __init__(self):
         self._log = logging.getLogger(type(self).__name__)
+
+    def initialize(self, target, results):
+        """Perform IO necessary to setup onslaught results directory."""
+        self._realtarget = path.Path(target)
+
         self._pkgname = self._init_packagename()
         self._resdir = self._init_results_dir(results)
         self._target = self._init_target()
@@ -24,6 +27,7 @@ class Session (object):
 
         self._logstep = 0
         self._vbin = self._resdir('venv', 'bin')
+        return self
 
     def pushd_workdir(self):
         """chdir to a 'workdir' to keep caller cwd and target dir clean."""
@@ -117,7 +121,7 @@ class Session (object):
             logpath.write(
                 self._replace_venv_paths(
                     rawlogpath.read(),
-                    str(self._realtarget)))
+                    self._realtarget.pathstr))
             return logpath
 
         self._run_phase(
@@ -133,16 +137,16 @@ class Session (object):
 
     # Private below:
     def _init_packagename(self):
-        setup = str(self._realtarget('setup.py'))
+        setup = self._realtarget('setup.py').pathstr
         py = sys.executable
         return subprocess.check_output([py, setup, '--name']).strip()
 
     def _init_results_dir(self, results):
         if results is None:
-            results = Home('.onslaught', 'results', self._pkgname)
+            results = path.Home('.onslaught', 'results', self._pkgname)
             logf = self._log.info
         else:
-            results = Path(results)
+            results = path.Path(results)
             logf = self._log.debug
 
         logf('Preparing results directory: %r', results)
@@ -161,7 +165,7 @@ class Session (object):
         logdir = logpath.parent
         logdir.ensure_is_directory()
 
-        handler = logging.FileHandler(str(logpath))
+        handler = logging.FileHandler(logpath.pathstr)
         handler.setFormatter(
             logging.Formatter(
                 fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',

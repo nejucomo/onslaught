@@ -10,6 +10,10 @@ class Path (object):
         self._debug = logging.getLogger('path').debug
 
     @property
+    def pathstr(self):
+        return self._p
+
+    @property
     def basename(self):
         return os.path.basename(self._p)
 

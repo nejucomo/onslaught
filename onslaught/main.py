@@ -25,7 +25,8 @@ def main(args=sys.argv[1:]):
 
 
 def run_onslaught(target, results):
-    s = Session(target, results)
+    s = Session().initialize(target, results)
+
     with s.pushd_workdir():
         s.run_phase_flake8()
 
