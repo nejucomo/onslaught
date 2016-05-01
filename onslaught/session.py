@@ -55,7 +55,8 @@ class Session (object):
         rawrepdir = self._resdir('coverage.orig')
         self._run(
             'coverage-report-html',
-            'coverage', 'html',
+            self._vbin('coverage'),
+            'html',
             '--directory', rawrepdir)
 
         self._log.debug(
@@ -239,7 +240,8 @@ class Session (object):
     def _display_coverage_to_stdout(self):
         logpath = self._run(
             'coverage-report-stdout',
-            'coverage', 'report')
+            self._vbin('coverage'),
+            'report')
 
         self._log.info(
             'Coverage:\n%s',
