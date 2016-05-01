@@ -1,10 +1,8 @@
-import os
 import re
-import sys
 import logging
-import subprocess
+from sys import executable as python_executable
 from onslaught.consts import DateFormat, ExitUserFail
-from onslaught import path
+from onslaught import io, path
 
 
 class Session (object):
@@ -138,8 +136,10 @@ class Session (object):
     # Private below:
     def _init_packagename(self):
         setup = self._realtarget('setup.py').pathstr
-        py = sys.executable
-        return subprocess.check_output([py, setup, '--name']).strip()
+        return io.provider.gather_output(
+            python_executable,
+            setup,
+            '--name')
 
     def _init_results_dir(self, results):
         if results is None:
@@ -165,7 +165,7 @@ class Session (object):
         logdir = logpath.parent
         logdir.ensure_is_directory()
 
-        handler = logging.FileHandler(logpath.pathstr)
+        handler = logging.StreamHandler(logpath.open('a'))
         handler.setFormatter(
             logging.Formatter(
                 fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
@@ -189,7 +189,7 @@ class Session (object):
         self._log.debug('%s running...', logpref)
         try:
             logpath = self._run('phase.'+phase, *args, **kw)
-        except subprocess.CalledProcessError as e:
+        except io.CalledProcessError as e:
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
 
@@ -219,8 +219,8 @@ class Session (object):
         rawlogpath = self._logdir(logfile)
         try:
             with rawlogpath.open('w') as f:
-                subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
+                io.provider.check_call(args, stdout=f, stderr=io.STDOUT)
+        except io.CalledProcessError as e:
             e.args += (('logpath', filterlog(rawlogpath)),)
             raise
         else:
@@ -229,7 +229,7 @@ class Session (object):
     def _simplify_coverage_paths(self, rawrepdir, nicerepdir):
         nicerepdir.ensure_is_directory()
 
-        for srcpath in rawrepdir.walk():
+        for srcpath in rawrepdir.walk_files():
             dstpath = nicerepdir(srcpath.basename)
             if srcpath.basename.endswith('.html'):
                 self._log.debug(
@@ -255,7 +255,3 @@ class Session (object):
         )
         realrepl = '{}/{}'.format(repl, self._pkgname)
         return rgx.subn(realrepl, src)[0]
-
-    def _mkdir(self, path):
-        self._log.debug('mkdir %r', path)
-        os.mkdir(path)
