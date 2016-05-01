@@ -4,6 +4,7 @@ import argparse
 import traceback
 from onslaught.consts import ExitUnknownError, DateFormat
 from onslaught.session import Session
+from onslaught import io
 
 
 Description = """\
@@ -25,7 +26,8 @@ def main(args=sys.argv[1:]):
 
 
 def run_onslaught(target, results):
-    s = Session(target, results)
+    s = Session().initialize(target, results)
+
     with s.pushd_workdir():
         s.run_phase_flake8()
 
@@ -57,13 +59,22 @@ def parse_args(args):
         dest='loglevel',
         help='Log everything.')
 
+    defres = io.provider.expanduser(
+        io.provider.join(
+            '~',
+            '.onslaught',
+            'results',
+            '{package}'))
+
     parser.add_argument(
         '--results', '-r',
         dest='RESULTS',
         type=str,
-        default=None,
-        help=('Results directory which will be overwritten.'
-              + 'Default: ~/.onslaught/results/<packagename>'))
+        default=defres,
+        help=('Results directory which will be overwritten. ' +
+              'If "{package}" is present, it is replaced with ' +
+              'the package name. Default: {defres}'
+              .format(defres=defres)))
 
     parser.add_argument(
         'TARGET',

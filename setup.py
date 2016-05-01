@@ -31,9 +31,13 @@ def setup():
 
         install_requires=[
             'flake8 >= 2.0',
-            'coverage >= 3.6',
             'virtualenv >= 13.1.2',
+
+            # For self-unittests, not target testing:
+            'mock >= 2.0.0',
         ],
+
+        test_suite='{}.tests'.format(PACKAGE),
     )
 
 
