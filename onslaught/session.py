@@ -2,7 +2,8 @@ import re
 import logging
 from sys import executable as python_executable
 from onslaught.consts import DateFormat, ExitUserFail
-from onslaught import io, path
+from onslaught import io
+from onslaught.path import Path
 
 
 class Session (object):
@@ -14,11 +15,15 @@ class Session (object):
     def __init__(self):
         self._log = logging.getLogger(type(self).__name__)
 
-    def initialize(self, target, results):
+    def initialize(self, target, resultstmpl):
         """Perform IO necessary to setup onslaught results directory."""
-        self._realtarget = path.Path(target)
+        self._realtarget = Path.from_relative(target)
 
         self._pkgname = self._init_packagename()
+
+        results = Path.from_relative(
+            resultstmpl.format(package=self._pkgname))
+
         self._resdir = self._init_results_dir(results)
         self._target = self._init_target()
         self._logdir = self._init_logdir()
@@ -142,15 +147,7 @@ class Session (object):
             '--name')
 
     def _init_results_dir(self, results):
-        if results is None:
-            results = path.Home('.onslaught', 'results', self._pkgname)
-            logf = self._log.info
-        else:
-            results = path.Path(results)
-            logf = self._log.debug
-
-        logf('Preparing results directory: %r', results)
-
+        self._log.info('Preparing results directory: %r', results)
         results.rmtree()
         results.ensure_is_directory()
         return results

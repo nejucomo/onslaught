@@ -2,8 +2,13 @@ from onslaught import io
 
 
 class Path (object):
+    @classmethod
+    def from_relative(cls, relpath):
+        return cls(io.provider.abspath(relpath))
+
     def __init__(self, path):
-        self._p = io.provider.abspath(path)
+        assert io.provider.isabs(path)
+        self._p = path
 
     @property
     def pathstr(self):
@@ -78,7 +83,7 @@ class Path (object):
                 yield bd(f)
 
 
-Home = Path(io.provider.environ['HOME'])
+Home = Path(io.provider.abspath(io.provider.environ['HOME']))
 
 
 class _PushdContext (object):

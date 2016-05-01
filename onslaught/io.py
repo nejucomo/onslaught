@@ -25,6 +25,8 @@ class IOProvider (object):
             os.path.basename,
             os.path.dirname,
             os.path.exists,
+            os.path.expanduser,
+            os.path.isabs,
             os.path.isfile,
             os.path.join,
             os.walk,
