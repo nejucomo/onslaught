@@ -64,15 +64,7 @@ class Session (object):
             nicerepdir)
 
         self._simplify_coverage_paths(rawrepdir, nicerepdir)
-
-        logpath = self._run(
-            'coverage-report-stdout',
-            'coverage', 'report')
-
-        with logpath.open('r') as f:
-            self._log.info(
-                'Coverage:\n%s',
-                self._replace_venv_paths(f.read(), '...'))
+        self._display_coverage_to_stdout()
 
     # User test phases:
     def run_phase_flake8(self):
@@ -206,7 +198,7 @@ class Session (object):
         filterlog = kw.pop('filterlog', lambda lp: lp)
         assert len(kw) == 0, 'Unexpected keyword args: {!r}'.format(kw)
 
-        args = map(str, args)
+        args = [a.pathstr if isinstance(a, Path) else a for a in args]
 
         logfile = '{0:02}.{1}.log'.format(self._logstep, logname)
         self._logstep += 1
@@ -243,6 +235,15 @@ class Session (object):
                 srcpath.copyfile(dstpath)
             else:
                 srcpath.copytree(dstpath)
+
+    def _display_coverage_to_stdout(self):
+        logpath = self._run(
+            'coverage-report-stdout',
+            'coverage', 'report')
+
+        self._log.info(
+            'Coverage:\n%s',
+            self._replace_venv_paths(logpath.read(), '...'))
 
     def _replace_venv_paths(self, src, repl):
         rgx = re.compile(

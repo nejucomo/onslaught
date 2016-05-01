@@ -37,10 +37,7 @@ class Path (object):
         return isinstance(other, Path) and other._p == self._p
 
     def __repr__(self):
-        return repr(self._p)
-
-    def __str__(self):
-        return self._p
+        return 'Path({!r})'.format(self._p)
 
     def __call__(self, *parts):
         return Path(io.provider.join(self._p, *parts))
