@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 
-import sys
+import os
 import subprocess
 import setuptools
+import distutils.command.upload
 
 
 PACKAGE = 'onslaught'
@@ -31,63 +32,105 @@ def setup():
 
         install_requires=[
             'flake8 >= 2.0',
-            'coverage >= 3.6',
             'virtualenv >= 13.1.2',
+
+            # For self-unittests, not target testing:
+            'mock >= 2.0.0',
         ],
+
+        test_suite='{}.tests'.format(PACKAGE),
+
+        cmdclass={
+            'release': ReleaseCommand,
+            'upload': UploadCommand,
+        },
     )
 
 
-def main(args=sys.argv[1:]):
-    if args == ['release']:
-        publish_release()
-    else:
-        setup()
+class ReleaseCommand (setuptools.Command):
+    """Prepare and distribute a release"""
 
+    description = __doc__
 
-def publish_release():
-    # TODO: require self-onslaught to pass as policy.
-    # ref: https://github.com/nejucomo/onslaught/issues/8
+    user_options = [
+        ('dry-run', None, 'Do not git tag or upload.')
+    ]
 
-    def make_sh_func(subprocfunc):
-        def shfunc(*args):
-            print 'Running: {}'.format(' '.join([repr(a) for a in args]))
-            try:
-                return subprocfunc(args)
-            except subprocess.CalledProcessError as e:
-                raise SystemExit(str(e))
-        return shfunc
+    _SAFETY_ENV = '_ONSLAUGHT_SETUP_RELEASE_ALLOW_UPLOAD_'
 
-    sh = make_sh_func(subprocess.check_call)
-    shout = make_sh_func(subprocess.check_output)
+    def initialize_options(self):
+        """init options"""
+        self.dry_run = False
 
-    gitstatus = shout('git', 'status', '--porcelain')
-    if gitstatus.strip():
-        raise SystemExit(
-            'ABORT: dirty working directory:\n{}'.format(
-                gitstatus,
+    def finalize_options(self):
+        """finalize options"""
+        pass
+
+    def run(self):
+        # TODO: require self-onslaught to pass as policy.
+        # ref: https://github.com/nejucomo/onslaught/issues/8
+
+        def fmt_args(args):
+            return ' '.join([repr(a) for a in args])
+
+        def make_sh_func(subprocfunc):
+            def shfunc(*args):
+                print 'Running: {}'.format(fmt_args(args))
+                try:
+                    return subprocfunc(args)
+                except subprocess.CalledProcessError as e:
+                    raise SystemExit(str(e))
+            return shfunc
+
+        def dry_run(*args):
+            print 'Not running (--dry-run): {}'.format(fmt_args(args))
+
+        sh = make_sh_func(subprocess.check_call)
+        shout = make_sh_func(subprocess.check_output)
+        shdry = dry_run if self.dry_run else sh
+
+        gitstatus = shout('git', 'status', '--porcelain')
+        if gitstatus.strip():
+            raise SystemExit(
+                'ABORT: dirty working directory:\n{}'.format(
+                    gitstatus,
+                )
             )
+
+        branch = shout('git', 'rev-parse', '--abbrev-ref', 'HEAD').strip()
+        if branch != 'release':
+            raise SystemExit(
+                'ABORT: must be on release branch, not {!r}'.format(
+                    branch,
+                ),
+            )
+
+        version = shout('python', './setup.py', '--version').strip()
+        shdry('git', 'tag', version)
+
+        os.environ[ReleaseCommand._SAFETY_ENV] = 'yes'
+
+        shdry(
+            'python',
+            './setup.py',
+            'sdist',
+            'upload',
+            '--sign',
+            '--identity', CODE_SIGNING_GPG_ID,
         )
 
-    branch = shout('git', 'rev-parse', '--abbrev-ref', 'HEAD').strip()
-    if branch != 'release':
-        raise SystemExit(
-            'ABORT: must be on release branch, not {!r}'.format(
-                branch,
-            ),
-        )
 
-    version = shout('python', './setup.py', '--version').strip()
-    sh('git', 'tag', version)
+class UploadCommand (distutils.command.upload.upload):
+    description = distutils.command.upload.upload.__doc__
 
-    sh(
-        'python',
-        './setup.py',
-        'sdist',
-        'upload',
-        '--sign',
-        '--identity', CODE_SIGNING_GPG_ID,
-    )
+    def run(self):
+        if os.environ.get(ReleaseCommand._SAFETY_ENV) != 'yes':
+            raise SystemExit(
+                'Please use the release command, ' +
+                'rather than directly uploading.')
+        else:
+            return super(UploadCommand, self).run()
 
 
 if __name__ == '__main__':
-    main()
+    setup()

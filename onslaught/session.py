@@ -1,29 +1,36 @@
-import os
 import re
-import sys
 import logging
-import subprocess
+from sys import executable as python_executable
 from onslaught.consts import DateFormat, ExitUserFail
-from onslaught.path import Path, Home
+from onslaught import io
+from onslaught.path import Path
 
 
 class Session (object):
     _TEST_DEPENDENCIES = [
         'twisted >= 14.0',  # For trial
-        'coverage == 3.7.1',
-        ]
+        'coverage == 4.0.3',
+    ]
 
-    def __init__(self, target, results):
-        self._realtarget = Path(target)
-
+    def __init__(self):
         self._log = logging.getLogger(type(self).__name__)
+
+    def initialize(self, target, resultstmpl):
+        """Perform IO necessary to setup onslaught results directory."""
+        self._realtarget = Path.from_relative(target)
+
         self._pkgname = self._init_packagename()
+
+        results = Path.from_relative(
+            resultstmpl.format(package=self._pkgname))
+
         self._resdir = self._init_results_dir(results)
         self._target = self._init_target()
         self._logdir = self._init_logdir()
 
         self._logstep = 0
         self._vbin = self._resdir('venv', 'bin')
+        return self
 
     def pushd_workdir(self):
         """chdir to a 'workdir' to keep caller cwd and target dir clean."""
@@ -48,7 +55,8 @@ class Session (object):
         rawrepdir = self._resdir('coverage.orig')
         self._run(
             'coverage-report-html',
-            'coverage', 'html',
+            self._vbin('coverage'),
+            'html',
             '--directory', rawrepdir)
 
         self._log.debug(
@@ -57,15 +65,7 @@ class Session (object):
             nicerepdir)
 
         self._simplify_coverage_paths(rawrepdir, nicerepdir)
-
-        logpath = self._run(
-            'coverage-report-stdout',
-            'coverage', 'report')
-
-        with logpath.open('r') as f:
-            self._log.info(
-                'Coverage:\n%s',
-                self._replace_venv_paths(f.read(), '...'))
+        self._display_coverage_to_stdout()
 
     # User test phases:
     def run_phase_flake8(self):
@@ -117,7 +117,7 @@ class Session (object):
             logpath.write(
                 self._replace_venv_paths(
                     rawlogpath.read(),
-                    str(self._realtarget)))
+                    self._realtarget.pathstr))
             return logpath
 
         self._run_phase(
@@ -133,20 +133,14 @@ class Session (object):
 
     # Private below:
     def _init_packagename(self):
-        setup = str(self._realtarget('setup.py'))
-        py = sys.executable
-        return subprocess.check_output([py, setup, '--name']).strip()
+        setup = self._realtarget('setup.py').pathstr
+        return io.provider.gather_output(
+            python_executable,
+            setup,
+            '--name')
 
     def _init_results_dir(self, results):
-        if results is None:
-            results = Home('.onslaught', 'results', self._pkgname)
-            logf = self._log.info
-        else:
-            results = Path(results)
-            logf = self._log.debug
-
-        logf('Preparing results directory: %r', results)
-
+        self._log.info('Preparing results directory: %r', results)
         results.rmtree()
         results.ensure_is_directory()
         return results
@@ -161,7 +155,7 @@ class Session (object):
         logdir = logpath.parent
         logdir.ensure_is_directory()
 
-        handler = logging.FileHandler(str(logpath))
+        handler = logging.StreamHandler(logpath.open('a'))
         handler.setFormatter(
             logging.Formatter(
                 fmt='%(asctime)s %(levelname) 5s %(name)s | %(message)s',
@@ -185,7 +179,7 @@ class Session (object):
         self._log.debug('%s running...', logpref)
         try:
             logpath = self._run('phase.'+phase, *args, **kw)
-        except subprocess.CalledProcessError as e:
+        except io.CalledProcessError as e:
             (tag, path) = e.args[-1]
             assert tag == 'logpath', repr(e.args)
 
@@ -205,7 +199,7 @@ class Session (object):
         filterlog = kw.pop('filterlog', lambda lp: lp)
         assert len(kw) == 0, 'Unexpected keyword args: {!r}'.format(kw)
 
-        args = map(str, args)
+        args = [a.pathstr if isinstance(a, Path) else a for a in args]
 
         logfile = '{0:02}.{1}.log'.format(self._logstep, logname)
         self._logstep += 1
@@ -215,8 +209,8 @@ class Session (object):
         rawlogpath = self._logdir(logfile)
         try:
             with rawlogpath.open('w') as f:
-                subprocess.check_call(args, stdout=f, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
+                io.provider.check_call(args, stdout=f, stderr=io.STDOUT)
+        except io.CalledProcessError as e:
             e.args += (('logpath', filterlog(rawlogpath)),)
             raise
         else:
@@ -225,7 +219,7 @@ class Session (object):
     def _simplify_coverage_paths(self, rawrepdir, nicerepdir):
         nicerepdir.ensure_is_directory()
 
-        for srcpath in rawrepdir.walk():
+        for srcpath in rawrepdir.walk_files():
             dstpath = nicerepdir(srcpath.basename)
             if srcpath.basename.endswith('.html'):
                 self._log.debug(
@@ -243,6 +237,16 @@ class Session (object):
             else:
                 srcpath.copytree(dstpath)
 
+    def _display_coverage_to_stdout(self):
+        logpath = self._run(
+            'coverage-report-stdout',
+            self._vbin('coverage'),
+            'report')
+
+        self._log.info(
+            'Coverage:\n%s',
+            self._replace_venv_paths(logpath.read(), '...'))
+
     def _replace_venv_paths(self, src, repl):
         rgx = re.compile(
             r'/[/a-z0-9._-]+/site-packages/{}'.format(
@@ -251,7 +255,3 @@ class Session (object):
         )
         realrepl = '{}/{}'.format(repl, self._pkgname)
         return rgx.subn(realrepl, src)[0]
-
-    def _mkdir(self, path):
-        self._log.debug('mkdir %r', path)
-        os.mkdir(path)
