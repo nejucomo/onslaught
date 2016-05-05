@@ -129,7 +129,7 @@ class UploadCommand (distutils.command.upload.upload):
                 'Please use the release command, ' +
                 'rather than directly uploading.')
         else:
-            return super(UploadCommand, self).run()
+            return distutils.command.upload.upload.run(self)
 
 
 if __name__ == '__main__':
