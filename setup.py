@@ -1,7 +1,9 @@
 #! /usr/bin/env python
 
+import os
 import subprocess
 import setuptools
+import distutils.command.upload
 
 
 PACKAGE = 'onslaught'
@@ -38,7 +40,10 @@ def setup():
 
         test_suite='{}.tests'.format(PACKAGE),
 
-        cmdclass={'release': ReleaseCommand},
+        cmdclass={
+            'release': ReleaseCommand,
+            'upload': UploadCommand,
+        },
     )
 
 
@@ -47,31 +52,42 @@ class ReleaseCommand (setuptools.Command):
 
     description = __doc__
 
-    user_options = ()
+    user_options = [
+        ('dry-run', None, 'Do not git tag or upload.')
+    ]
 
-    # def initialize_options(self):
-    #     """init options"""
-    #      pass
+    _SAFETY_ENV = '_ONSLAUGHT_SETUP_RELEASE_ALLOW_UPLOAD_'
 
-    # def finalize_options(self):
-    #     """finalize options"""
-    #     pass
+    def initialize_options(self):
+        """init options"""
+        self.dry_run = False
+
+    def finalize_options(self):
+        """finalize options"""
+        pass
 
     def run(self):
         # TODO: require self-onslaught to pass as policy.
         # ref: https://github.com/nejucomo/onslaught/issues/8
 
+        def fmt_args(args):
+            return ' '.join([repr(a) for a in args])
+
         def make_sh_func(subprocfunc):
             def shfunc(*args):
-                print 'Running: {}'.format(' '.join([repr(a) for a in args]))
+                print 'Running: {}'.format(fmt_args(args))
                 try:
                     return subprocfunc(args)
                 except subprocess.CalledProcessError as e:
                     raise SystemExit(str(e))
             return shfunc
 
+        def dry_run(*args):
+            print 'Not running (--dry-run): {}'.format(fmt_args(args))
+
         sh = make_sh_func(subprocess.check_call)
         shout = make_sh_func(subprocess.check_output)
+        shdry = dry_run if self.dry_run else sh
 
         gitstatus = shout('git', 'status', '--porcelain')
         if gitstatus.strip():
@@ -90,9 +106,11 @@ class ReleaseCommand (setuptools.Command):
             )
 
         version = shout('python', './setup.py', '--version').strip()
-        sh('git', 'tag', version)
+        shdry('git', 'tag', version)
 
-        sh(
+        os.environ[ReleaseCommand._SAFETY_ENV] = 'yes'
+
+        shdry(
             'python',
             './setup.py',
             'sdist',
@@ -100,6 +118,18 @@ class ReleaseCommand (setuptools.Command):
             '--sign',
             '--identity', CODE_SIGNING_GPG_ID,
         )
+
+
+class UploadCommand (distutils.command.upload.upload):
+    description = distutils.command.upload.upload.__doc__
+
+    def run(self):
+        if os.environ.get(ReleaseCommand._SAFETY_ENV) != 'yes':
+            raise SystemExit(
+                'Please use the release command, ' +
+                'rather than directly uploading.')
+        else:
+            return super(UploadCommand, self).run()
 
 
 if __name__ == '__main__':
