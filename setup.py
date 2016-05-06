@@ -106,17 +106,21 @@ class ReleaseCommand (setuptools.Command):
             )
 
         version = shout('python', './setup.py', '--version').strip()
-        shdry('git', 'tag', version)
+
+        shdry(
+            'git', 'tag', '--annotated',
+            '--local-user', CODE_SIGNING_GPG_ID,
+            '--message', 'Created by ``setup.py release``.',
+            version,
+        )
+
+        shdry('git', 'push', '--follow-tags', 'origin', branch)
 
         os.environ[ReleaseCommand._SAFETY_ENV] = 'yes'
 
         shdry(
-            'python',
-            './setup.py',
-            'sdist',
-            'upload',
-            '--sign',
-            '--identity', CODE_SIGNING_GPG_ID,
+            'python', './setup.py', 'sdist', 'upload',
+            '--sign', '--identity', CODE_SIGNING_GPG_ID,
         )
 
 
