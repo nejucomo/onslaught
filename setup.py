@@ -70,6 +70,15 @@ class ReleaseCommand (setuptools.Command):
         # TODO: require self-onslaught to pass as policy.
         # ref: https://github.com/nejucomo/onslaught/issues/8
 
+        def real_abort(tmpl, *args):
+            raise SystemExit('ABORT: {}'.format(tmpl.format(*args)))
+
+        def dry_abort(tmpl, *args):
+            print 'ABORT: {}'.format(tmpl.format(*args))
+            print 'Continuing after ABORT due to --dry-run.'
+
+        abort = dry_abort if self.dry_run else real_abort
+
         def fmt_args(args):
             return ' '.join([repr(a) for a in args])
 
@@ -79,7 +88,7 @@ class ReleaseCommand (setuptools.Command):
                 try:
                     return subprocfunc(args)
                 except subprocess.CalledProcessError as e:
-                    raise SystemExit(str(e))
+                    abort(str(e))
             return shfunc
 
         def dry_run(*args):
@@ -91,19 +100,11 @@ class ReleaseCommand (setuptools.Command):
 
         gitstatus = shout('git', 'status', '--porcelain')
         if gitstatus.strip():
-            raise SystemExit(
-                'ABORT: dirty working directory:\n{}'.format(
-                    gitstatus,
-                )
-            )
+            abort('dirty working directory:\n{}', gitstatus)
 
         branch = shout('git', 'rev-parse', '--abbrev-ref', 'HEAD').strip()
         if branch != 'release':
-            raise SystemExit(
-                'ABORT: must be on release branch, not {!r}'.format(
-                    branch,
-                ),
-            )
+            abort('must be on release branch, not {!r}', branch)
 
         version = shout('python', './setup.py', '--version').strip()
 
