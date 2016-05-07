@@ -109,7 +109,7 @@ class ReleaseCommand (setuptools.Command):
         version = shout('python', './setup.py', '--version').strip()
 
         shdry(
-            'git', 'tag', '--annotated',
+            'git', 'tag', '--annotate',
             '--local-user', CODE_SIGNING_GPG_ID,
             '--message', 'Created by ``setup.py release``.',
             version,
