@@ -7,7 +7,7 @@ import distutils.command.upload
 
 
 PACKAGE = 'onslaught'
-VERSION = '0.1.dev3'
+VERSION = '0.1.dev4'
 CODE_SIGNING_GPG_ID = '29F306D804101C610BDEA41F5F53C65730693904'
 
 
