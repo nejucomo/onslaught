@@ -5,7 +5,12 @@ onslaught
 Run style and static checks against a python codebase, execute automated
 tests with coverage.
 
-Specific tests are:
+.. contents::
+
+Overview
+========
+
+Onslaught runs these tests against a python codebase:
 
 * PEP8 style.
 * pyflakes static checks.
