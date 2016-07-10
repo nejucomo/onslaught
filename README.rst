@@ -142,3 +142,10 @@ awesomeness, then go for it. ;-)
 
 **Note:** Currently `onslaught` is a prototype in flux, so take the
 above with a grain of salt.
+
+Related Work
+============
+
+The `tox`_ project has similar goals, specifically automating the testing of packaging itself on different python versions. It doesn't aim to define a "badge of quality" and is more flexible.
+
+.. _`tox`: https://testrun.org/tox/latest/
