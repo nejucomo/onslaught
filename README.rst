@@ -26,7 +26,7 @@ It also generates branch-coverage reports.
 - leaves your source directory the way it found it,
 - leaves your base python packages unmodified,
 - ensures your project generates a clean `sdist` [#]_,
-- tests the `sdist` install process [#]_,
+- tests the `sdist` install process,
 - runs unittests against the installed package [#]_,
 - and generates branch coverage reports.
 
@@ -37,8 +37,6 @@ It also generates branch-coverage reports.
 
 .. [#] This is strict: any ``warning:`` lines in the `sdist` creation
        command are `onslaught` failures.
-
-.. [#] So your unittests pass. Great! But does your software install?
 
 .. [#] Test the "production" form of your code, not dev source.
 
